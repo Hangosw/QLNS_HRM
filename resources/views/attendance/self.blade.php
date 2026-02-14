@@ -1,0 +1,284 @@
+@extends('layouts.app')
+
+@section('title', 'Chấm công cá nhân - Vietnam Rubber Group')
+
+@push('styles')
+    <style>
+        .clock-container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 32px;
+        }
+
+        #live-clock {
+            font-size: 64px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #live-date {
+            font-size: 20px;
+            color: #6b7280;
+            margin-bottom: 32px;
+        }
+
+        .attendance-actions {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .action-card {
+            flex: 1;
+            max-width: 300px;
+            padding: 32px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            text-align: center;
+        }
+
+        .action-card.in {
+            background-color: #f0fdf4;
+            color: #166534;
+        }
+
+        .action-card.in:hover {
+            border-color: #22c55e;
+            transform: translateY(-4px);
+        }
+
+        .action-card svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+        }
+
+        .action-card h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .action-card p {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .user-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            background: #0F5132;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .user-details h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            color: #1e293b;
+        }
+
+        .user-details p {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .status-badge {
+            margin-top: 8px;
+            display: inline-block;
+        }
+    </style>
+@endpush
+
+@section('content')
+    <div class="page-header">
+        <h1>Chấm công cá nhân</h1>
+        <p>Ghi nhận thời gian làm việc hàng ngày của bạn</p>
+    </div>
+
+    @if(isset($error))
+        <div class="alert alert-danger">
+            {{ $error }}
+        </div>
+    @else
+        <div class="user-card">
+            <div class="user-avatar">
+                {{ substr($nhanVien->Ten, 0, 1) }}
+            </div>
+            <div class="user-details">
+                <h2>{{ $nhanVien->Ten }}</h2>
+                <p>Mã nhân viên: <strong>{{ $nhanVien->Ma }}</strong></p>
+                @if($todayAttendance)
+                    <div class="status-badge">
+                        Trạng thái hôm nay:
+                        @if($todayAttendance->Ra)
+                            <span class="badge badge-success">Đã hoàn thành</span>
+                        @else
+                            <span class="badge badge-primary">Đang làm việc</span>
+                        @endif
+                    </div>
+                @else
+                    <div class="status-badge">
+                        Trạng thái hôm nay: <span class="badge badge-gray">Chưa chấm công</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <div class="clock-container">
+            <div id="live-clock">00:00:00</div>
+            <div id="live-date">...</div>
+
+            <div class="attendance-actions">
+                @if(!$todayAttendance || !$todayAttendance->Ra)
+                    <div class="action-card in" onclick="submitAttendance()">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        <h3>
+                            @if(!$todayAttendance)
+                                Chấm công Vào
+                            @else
+                                Chấm công Ra
+                            @endif
+                        </h3>
+                        <p>Nhấp vào đây để ghi nhận thời gian</p>
+                    </div>
+                @else
+                    <div class="alert alert-success" style="width: 100%; max-width: 400px; margin: 0 auto;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            style="width: 24px; height: 24px; display: inline-block; margin-right: 8px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Bạn đã hoàn thành chấm công cho ngày hôm nay.
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        @if($todayAttendance)
+            <div class="recent-activity"
+                style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Chi tiết chấm công hôm nay</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Giờ vào</th>
+                            <th>Giờ ra</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ $todayAttendance->Vao->format('H:i:s') }}</td>
+                            <td>{{ $todayAttendance->Ra ? $todayAttendance->Ra->format('H:i:s') : '-' }}</td>
+                            <td>
+                                @if($todayAttendance->TrangThai === 'dung_gio')
+                                    <span class="badge badge-success">Đúng giờ</span>
+                                @elseif($todayAttendance->TrangThai === 'tre')
+                                    <span class="badge badge-warning">Đi muộn</span>
+                                @elseif($todayAttendance->TrangThai === 've_som')
+                                    <span class="badge badge-orange">Về sớm</span>
+                                @endif
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    @endif
+@endsection
+
+@push('scripts')
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const clock = document.getElementById('live-clock');
+            const dateEl = document.getElementById('live-date');
+
+            if (clock) clock.textContent = now.toLocaleTimeString('vi-VN');
+
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            if (dateEl) dateEl.textContent = now.toLocaleDateString('vi-VN', options);
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function submitAttendance() {
+            Swal.fire({
+                title: 'Đang xử lý...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch('{{ route("cham-cong.ca-nhan.post") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành công',
+                            text: data.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Lỗi',
+                            text: data.message,
+                            confirmButtonColor: '#0F5132'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi hệ thống',
+                        text: 'Có lỗi xảy ra, vui lòng thử lại sau!',
+                        confirmButtonColor: '#0F5132'
+                    });
+                });
+        }
+    </script>
+@endpush
