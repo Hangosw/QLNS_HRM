@@ -42,7 +42,7 @@ class TangCaController extends Controller
         $approvedCount = TangCa::where('TrangThai', 'da_duyet')->count();
         $rejectedCount = TangCa::where('TrangThai', 'tu_choi')->count();
 
-        $phongBans = \App\Models\DmPhongBan::all();
+        $phongBans = \App\Models\DmPhongBan::with('ttNhanVienCongViec.nhanVien')->get();
 
         return view('overtime.index', compact(
             'tangCas',
@@ -211,56 +211,102 @@ class TangCaController extends Controller
     }
 
     /**
-     * Phê duyệt đơn tăng ca
+     * Nhân viên yêu cầu lại đơn tăng ca bị từ chối (tối đa 3 lần)
      */
-    public function Duyet($id)
+    public function YeuCauLai(Request $request, $id)
     {
-        $nhanVien = auth()->user()->nhanVien;
-        if (!$nhanVien) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tài khoản của bạn chưa được liên kết với hồ sơ nhân viên để thực hiện duyệt.'
-            ]);
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Bạn cần đăng nhập.']);
         }
 
         $overtime = TangCa::findOrFail($id);
 
+        // Chỉ chủ đơn mới được yêu cầu lại
+        $nhanVien = $user->nhanVien;
+        if ($nhanVien && $overtime->NhanVienId !== $nhanVien->id) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền thực hiện hành động này.']);
+        }
+
+        // Phải đang bị từ chối
+        if ($overtime->TrangThai !== 'tu_choi') {
+            return response()->json(['success' => false, 'message' => 'Chỉ có thể yêu cầu lại đối với đơn bị từ chối.']);
+        }
+
+        // Kiểm tra giới hạn 3 lần
+        $soLanHienTai = $overtime->Dem ?? 1;
+        if ($soLanHienTai >= 3) {
+            return response()->json(['success' => false, 'message' => 'Đơn đã bị từ chối 3 lần, không thể yêu cầu lại.']);
+        }
+
+        // Nối lý do mới vào GhiChuLanhDao (giữ nguyên lịch sử)
+        $lyDoMoi = trim($request->input('LyDo', ''));
+        $ghiChuCu = $overtime->GhiChuLanhDao ?? '';
+        $lanYeuCauLai = $soLanHienTai + 1;
+
+        $ghiChuMoi = $ghiChuCu;
+        if ($lyDoMoi) {
+            $ghiChuMoi .= ($ghiChuCu ? '<br>' : '')
+                . "<strong>Yêu cầu lại lần {$lanYeuCauLai}:</strong> {$lyDoMoi}";
+        }
+
         $overtime->update([
-            'TrangThai' => 'da_duyet',
-            'NguoiDuyetId' => $nhanVien->id
+            'TrangThai' => 'dang_cho',
+            'Dem' => $soLanHienTai + 1,
+            'GhiChuLanhDao' => $ghiChuMoi,
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã phê duyệt đơn tăng ca.'
+            'message' => "Đã gửi yêu cầu lại lần {$lanYeuCauLai}. Vui lòng chờ phê duyệt.",
         ]);
     }
 
     /**
-     * Từ chối đơn tăng ca
+     * Phê duyệt đơn tăng ca
+     */
+    public function Duyet(Request $request, $id)
+    {
+        $nhanVien = auth()->user()?->nhanVien;
+        $nguoiDuyetId = $nhanVien?->id;
+
+        $overtime = TangCa::findOrFail($id);
+        $overtime->update([
+            'TrangThai' => 'da_duyet',
+            'NguoiDuyetId' => $nguoiDuyetId,
+            'GhiChuLanhDao' => $request->GhiChuLanhDao,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Đã phê duyệt đơn tăng ca.']);
+    }
+
+    /**
+     * Từ chối đơn tăng ca — GhiChuLanhDao được cộng dồn, không ghi đè
      */
     public function TuChoi(Request $request, $id)
     {
-        $nhanVien = auth()->user()->nhanVien;
-        if (!$nhanVien) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tài khoản của bạn chưa được liên kết với hồ sơ nhân viên để thực hiện từ chối.'
-            ]);
-        }
+        $nhanVien = auth()->user()?->nhanVien;
+        $nguoiDuyetId = $nhanVien?->id;
+        $lyDoMoi = trim($request->GhiChuLanhDao ?? '');
 
         $overtime = TangCa::findOrFail($id);
+        $ghiChuCu = $overtime->GhiChuLanhDao ?? '';
+        $soLan = $overtime->Dem ?? 1;
+
+        // Cộng dồn lý do từ chối theo từng lần
+        $ghiChuMoi = $ghiChuCu;
+        if ($lyDoMoi) {
+            $ghiChuMoi .= ($ghiChuCu ? '<br>' : '')
+                . "<strong>Từ chối (Lần {$soLan}):</strong> {$lyDoMoi}";
+        }
 
         $overtime->update([
             'TrangThai' => 'tu_choi',
-            'NguoiDuyetId' => $nhanVien->id,
-            'LyDo' => $overtime->LyDo . "\n[Từ chối: " . ($request->LyDo ?? 'Không có lý do') . "]"
+            'NguoiDuyetId' => $nguoiDuyetId,
+            'GhiChuLanhDao' => $ghiChuMoi,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã từ chối đơn tăng ca.'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Đã từ chối đơn tăng ca.']);
     }
 
     /**
@@ -268,13 +314,8 @@ class TangCaController extends Controller
      */
     public function DuyetNhieu(Request $request)
     {
-        $nhanVien = auth()->user()->nhanVien;
-        if (!$nhanVien) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tài khoản của bạn chưa được liên kết với hồ sơ nhân viên.'
-            ]);
-        }
+        $nhanVien = auth()->user()?->nhanVien;
+        $nguoiDuyetId = $nhanVien?->id;
 
         $ids = $request->ids;
         if (empty($ids)) {
@@ -283,45 +324,41 @@ class TangCaController extends Controller
 
         TangCa::whereIn('id', $ids)->where('TrangThai', 'dang_cho')->update([
             'TrangThai' => 'da_duyet',
-            'NguoiDuyetId' => $nhanVien->id
+            'NguoiDuyetId' => $nguoiDuyetId,
+            'GhiChuLanhDao' => $request->GhiChuLanhDao ?? 'Phê duyệt hàng loạt',
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã phê duyệt các phiếu đã chọn.'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Đã phê duyệt các phiếu đã chọn.']);
     }
 
     /**
-     * Từ chối nhiều đơn tăng ca
+     * Từ chối nhiều đơn tăng ca — cộng dồn GhiChuLanhDao cho từng record
      */
     public function TuChoiNhieu(Request $request)
     {
-        $nhanVien = auth()->user()->nhanVien;
-        if (!$nhanVien) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tài khoản của bạn chưa được liên kết với hồ sơ nhân viên.'
-            ]);
-        }
+        $nhanVien = auth()->user()?->nhanVien;
+        $nguoiDuyetId = $nhanVien?->id;
+        $lyDoMoi = trim($request->GhiChuLanhDao ?? 'Từ chối hàng loạt');
 
         $ids = $request->ids;
         if (empty($ids)) {
             return response()->json(['success' => false, 'message' => 'Vui lòng chọn ít nhất một phiếu.']);
         }
 
-        $overtimes = TangCa::whereIn('id', $ids)->get();
+        // Xử lý từng record để cộng dồn GhiChuLanhDao đúng
+        $overtimes = TangCa::whereIn('id', $ids)->where('TrangThai', 'dang_cho')->get();
         foreach ($overtimes as $ot) {
+            $ghiChuCu = $ot->GhiChuLanhDao ?? '';
+            $soLan = $ot->Dem ?? 1;
+            $ghiChuMoi = $ghiChuCu . ($ghiChuCu ? '<br>' : '')
+                . "<strong>Từ chối (Lần {$soLan}):</strong> {$lyDoMoi}";
             $ot->update([
                 'TrangThai' => 'tu_choi',
-                'NguoiDuyetId' => $nhanVien->id,
-                'Dem' => $ot->Dem + 1
+                'NguoiDuyetId' => $nguoiDuyetId,
+                'GhiChuLanhDao' => $ghiChuMoi,
             ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã từ chối các phiếu đã chọn.'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Đã từ chối các phiếu đã chọn.']);
     }
 }

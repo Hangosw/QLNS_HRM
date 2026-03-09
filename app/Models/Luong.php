@@ -3,17 +3,38 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasUnitScoping;
 
 class Luong extends Model
 {
+    use HasUnitScoping;
     protected $table = 'luongs';
-    
+
     protected $fillable = [
         'NhanVienId',
-        'LoaiLuong', // 0 là loại lương văn phòng, 1 là loại công nhân, 2 là loại cộng tác viên
-        'Luong',
-        'ThoiGian', // chỉ lấy tháng và năm nhận lương (format YYYY-MM-01)
-        'TrangThai', // 0 là chưa trả, 1 là đã trả
+        'LoaiLuong',
+        'Luong',      // Đây nên là lương thực nhận cuối cùng (Net)
+        'ThoiGian',
+        'TrangThai',
+
+        // --- CÁC CỘT BỔ SUNG ---
+
+        // 1. Thu nhập (Earnings)
+        'LuongCoBan',    // Tính từ Hệ số (bảng bac_luongs) * Lương cơ sở
+        'LuongTangCa',   // Tổng tiền từ bảng tang_cas đã duyệt
+        'PhuCap',        // Tổng các loại phụ cấp (ăn trưa, điện thoại...)
+        'KhenThuong',    // Thưởng đột xuất
+
+        // 2. Khấu trừ (Deductions)
+        'KhauTruBaoHiem', // Tổng tiền 10.5% (BHXH, BHYT, BHTN) nhân viên đóng
+        'ThueTNCN',       // Thuế thu nhập cá nhân sau khi trừ gia cảnh
+        'KyLuat',         // Tiền phạt hoặc trừ lương
+        'TamUng',         // Số tiền nhân viên đã ứng trong tháng
+
+        // 3. Thông tin đối soát
+        'SoNgayCong',     // Số công thực tế (đặc biệt quan trọng cho LoaiLuong = 1)
+        'SoNguoiPhuThuoc', // Lưu số người tại thời điểm chốt lương để giải trình thuế
+        'GhiChu',
     ];
 
     protected $casts = [
@@ -94,6 +115,6 @@ class Luong extends Model
     public function scopeThang($query, $month, $year)
     {
         return $query->whereYear('ThoiGian', $year)
-                     ->whereMonth('ThoiGian', $month);
+            ->whereMonth('ThoiGian', $month);
     }
 }

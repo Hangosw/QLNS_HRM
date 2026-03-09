@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasUnitScoping;
 
 class HopDong extends Model
 {
+    use HasUnitScoping;
     protected $table = 'hop_dongs';
 
     protected $fillable = [
@@ -90,6 +92,10 @@ class HopDong extends Model
     /**
      * Relationship: Loại hợp đồng
      */
+    public function loaiHopDong()
+    {
+        return $this->belongsTo(DmLoaiHopDong::class, 'Loai', 'MaLoai');
+    }
 
     /**
      * Check if contract is expired

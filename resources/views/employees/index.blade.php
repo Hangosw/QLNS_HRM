@@ -33,12 +33,24 @@
                     </svg>
                     Xuất Excel
                 </button>
-                <a href="{{ route('nhan-vien.taoView') }}" class="btn btn-primary">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Thêm nhân viên
-                </a>
+                @can('Thêm nhân viên')
+                    <a href="{{ route('nhan-vien.taoView') }}" class="btn btn-primary">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Thêm nhân viên
+                    </a>
+                @endcan
+                @can('Thêm nhân viên')
+                    <a href="{{ route('nhan-vien.importView') }}" class="btn btn-success"
+                        style="background-color: #10b981; border-color: #10b981; color: white;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Import nhân viên
+                    </a>
+                @endcan
             </div>
         </div>
     </div>
@@ -114,13 +126,13 @@
                             searchable: false,
                             render: function (data, type, row, meta) {
                                 return `
-                                                                                                            <div style="text-align: center;">
-                                                                                                                <div><strong>${meta.row + meta.settings._iDisplayStart + 1}</strong></div>
-                                                                                                                <div style="margin-top: 4px;">
-                                                                                                                    <input type="checkbox" class="employee-checkbox" value="${row.id}">
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                        `;
+                                                                                                                                    <div style="text-align: center;">
+                                                                                                                                        <div><strong>${meta.row + meta.settings._iDisplayStart + 1}</strong></div>
+                                                                                                                                        <div style="margin-top: 4px;">
+                                                                                                                                            <input type="checkbox" class="employee-checkbox" value="${row.id}">
+                                                                                                                                        </div>
+                                                                                                                                    </div>
+                                                                                                                                `;
                             }
                         },
                         {
@@ -131,16 +143,16 @@
                                 const gioiTinh = row.GioiTinh == 1 ? 'Nam' : 'Nữ';
 
                                 return `
-                                                                                                            <div style="display: flex; align-items: center; gap: 16px;">
-                                                                                                                <img src="${avatar}" alt="${data}" class="avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
-                                                                                                                <div>
-                                                                                                                    <a href="/nhan-vien/info/${row.id}" class="employee-name-link">${data}</a>
-                                                                                                                    <div class="text-gray" style="font-size: 14px; margin-top: 4px;">Ngày sinh: ${ngaySinh}</div>
-                                                                                                                    <div class="text-gray" style="font-size: 14px;">Giới tính: ${gioiTinh}</div>
-                                                                                                                    <div style="font-size: 14px; color: #9ca3af; margin-top: 2px;">CCCD: ${row.SoCCCD || 'N/A'}</div>
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                        `;
+                                                                                                                                    <div style="display: flex; align-items: center; gap: 16px;">
+                                                                                                                                        <img src="${avatar}" alt="${data}" class="avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
+                                                                                                                                        <div>
+                                                                                                                                            <a href="/nhan-vien/info/${row.id}" class="employee-name-link">${data}</a>
+                                                                                                                                            <div class="text-gray" style="font-size: 14px; margin-top: 4px;">Ngày sinh: ${ngaySinh}</div>
+                                                                                                                                            <div class="text-gray" style="font-size: 14px;">Giới tính: ${gioiTinh}</div>
+                                                                                                                                            <div style="font-size: 14px; color: #9ca3af; margin-top: 2px;">CCCD: ${row.SoCCCD || 'N/A'}</div>
+                                                                                                                                        </div>
+                                                                                                                                    </div>
+                                                                                                                                `;
                             }
                         },
                         {
@@ -151,12 +163,12 @@
                                 const address = row.DiaChi || 'Chưa cập nhật';
 
                                 return `
-                                                                                                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                                                                                                        <div style="font-size: 14px;"><i class="bi bi-telephone-fill" style="color: #0F5132;"></i> ${phone}</div>
-                                                                                                        <div style="font-size: 14px;"><i class="bi bi-envelope-fill" style="color: #0F5132;"></i> ${email}</div>
-                                                                                                        <div style="font-size: 14px; color: #6b7280;"><i class="bi bi-house-fill" style="color: #6b7280;"></i> ${address}</div>
-                                                                                                    </div>
-                                                                                                `;
+                                                                                                                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                                                                                                <div style="font-size: 14px;"><i class="bi bi-telephone-fill" style="color: #0F5132;"></i> ${phone}</div>
+                                                                                                                                <div style="font-size: 14px;"><i class="bi bi-envelope-fill" style="color: #0F5132;"></i> ${email}</div>
+                                                                                                                                <div style="font-size: 14px; color: #6b7280;"><i class="bi bi-house-fill" style="color: #6b7280;"></i> ${address}</div>
+                                                                                                                            </div>
+                                                                                                                        `;
                             }
                         },
                         {
@@ -167,12 +179,12 @@
                                 const donVi = row.tt_cong_viec?.phong_ban?.don_vi?.Ten || '';
 
                                 return `
-                                                                                                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                                                                                                        <div class="font-medium" style="font-size: 14px;">${phongBan}</div>
-                                                                                                        <div class="text-gray" style="font-size: 14px;">${chucVu}</div>
-                                                                                                        <div style="font-size: 13px; color: #9ca3af;">${donVi}</div>
-                                                                                                    </div>
-                                                                                                `;
+                                                                                                                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                                                                                                                <div class="font-medium" style="font-size: 14px;">${phongBan}</div>
+                                                                                                                                <div class="text-gray" style="font-size: 14px;">${chucVu}</div>
+                                                                                                                                <div style="font-size: 13px; color: #9ca3af;">${donVi}</div>
+                                                                                                                            </div>
+                                                                                                                        `;
                             }
                         },
                         {

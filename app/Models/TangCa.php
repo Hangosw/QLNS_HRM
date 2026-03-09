@@ -11,18 +11,21 @@ class TangCa extends Model
 
     protected $fillable = [
         'NhanVienId',
+        'LoaiTangCaId', // Bổ sung: Liên kết tới dm_tang_cas để lấy hệ số
         'NguoiDuyetId',
         'Ngay',
         'BatDau',
         'KetThuc',
         'Tong',
         'TrangThai', // dang_cho, da_duyet, tu_choi
-        'Dem', // cái này đếm số lần submit, trường hợp người dùng gửi đơn bị từ chối nhiều lần
+        'Dem',       // Đếm số lần submit, tối đa 3 lần
         'LyDo',
+        'GhiChuLanhDao',
     ];
 
     protected $casts = [
         'NhanVienId' => 'integer',
+        'LoaiTangCaId' => 'integer',
         'NguoiDuyetId' => 'integer',
         'Ngay' => 'date',
         'Tong' => 'float',
@@ -30,82 +33,56 @@ class TangCa extends Model
     ];
 
     /**
-     * Relationship: Tăng ca của nhân viên
+     * Relationship: Loại tăng ca để lấy hệ số lương
      */
+    public function loaiTangCa()
+    {
+        return $this->belongsTo(DmTangCa::class, 'LoaiTangCaId');
+    }
+
     public function nhanVien()
     {
         return $this->belongsTo(NhanVien::class, 'NhanVienId');
     }
 
     /**
-     * Relationship: Người duyệt tăng ca
+     * Kiểm tra xem còn quyền được submit lại hay không (Tối đa 3 lần)
      */
-    public function nguoiDuyet()
+    public function canResubmit()
     {
-        return $this->belongsTo(NhanVien::class, 'NguoiDuyetId');
+        return $this->Dem < 3 && $this->TrangThai === 'tu_choi';
     }
 
     /**
-     * Check if overtime is rejected
+     * Tự động tính tổng giờ khi lưu (thay vì gọi hàm lẻ)
+     * Bạn có thể gọi cái này trong Observer hoặc Controller trước khi save
      */
+    public function calculateTotal()
+    {
+        if ($this->BatDau && $this->KetThuc) {
+            $start = Carbon::parse($this->BatDau);
+            $end = Carbon::parse($this->KetThuc);
+
+            // Xử lý trường hợp tăng ca xuyên đêm (ví dụ từ 22h đến 2h sáng hôm sau)
+            if ($end->lessThan($start)) {
+                $end->addDay();
+            }
+
+            $this->Tong = round($start->diffInMinutes($end) / 60, 2);
+        }
+    }
+
+    // Các helper check trạng thái của bạn giữ nguyên vì rất tốt
     public function isRejected()
     {
         return $this->TrangThai === 'tu_choi';
     }
-
-    /**
-     * Check if overtime is approved
-     */
     public function isApproved()
     {
         return $this->TrangThai === 'da_duyet';
     }
-
-    /**
-     * Check if overtime is pending
-     */
     public function isPending()
     {
         return $this->TrangThai === 'dang_cho';
-    }
-
-    /**
-     * Calculate overtime hours
-     */
-    public function getOvertimeHours()
-    {
-        if (!$this->BatDau || !$this->KetThuc) {
-            return 0;
-        }
-
-        $date = Carbon::parse($this->Ngay)->format('Y-m-d');
-        $start = Carbon::parse($date . ' ' . $this->BatDau);
-        $end = Carbon::parse($date . ' ' . $this->KetThuc);
-
-        return round($start->diffInMinutes($end) / 60, 2);
-    }
-
-    /**
-     * Scope: Approved overtime
-     */
-    public function scopeDaDuyet($query)
-    {
-        return $query->where('TrangThai', 'da_duyet');
-    }
-
-    /**
-     * Scope: Pending overtime
-     */
-    public function scopeDangCho($query)
-    {
-        return $query->where('TrangThai', 'dang_cho');
-    }
-
-    /**
-     * Scope: Rejected overtime
-     */
-    public function scopeTuChoi($query)
-    {
-        return $query->where('TrangThai', 'tu_choi');
     }
 }

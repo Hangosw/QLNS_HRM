@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 class LoaiNghiPhep extends Model
 {
     protected $table = 'loai_nghi_pheps';
-    
+
     protected $fillable = [
         'Ten',
         'HuongLuong',
         'CoHanMuc', // 0 là không có giới hạn số ngày, 1 là có giới hạn số ngày
+        'HanMucToiDa',
     ];
 
     protected $casts = [

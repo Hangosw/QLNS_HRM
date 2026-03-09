@@ -68,6 +68,34 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label">Phân quyền (Roles) <span style="font-size:12px;color:gray;">(Chỉ có System
+                            Admin mới chỉnh được hệ thống cao nhất)</span></label>
+                    <div
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; border: 1px solid #d1d5db; padding: 12px; border-radius: 8px;">
+                        @foreach ($roles as $role)
+                            <label style="display:flex; align-items:center; gap:8px; cursor: pointer;">
+                                <input type="checkbox" name="roles[]" value="{{ $role->name }}"
+                                    {{ in_array($role->name, $userRoles) ? 'checked' : '' }}>
+                                <span>{{ $role->name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Đơn vị quản lý (Chỉ dành cho Admin Đơn Vị)</label>
+                    <p style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">Nếu không chọn, mặc định sẽ lấy đơn vị của nhân viên liên kết.</p>
+                    <div
+                        style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; border: 1px solid #d1d5db; padding: 16px; border-radius: 8px; background: #f9fafb;">
+                        @foreach ($donVis as $dv)
+                            <label style="display:flex; align-items:center; gap:8px; cursor: pointer; padding: 4px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                                <input type="checkbox" name="don_vis[]" value="{{ $dv->id }}" {{ in_array($dv->id, $userDonVis) ? 'checked' : '' }}>
+                                <span style="font-size: 13px;">{{ $dv->Ten }} ({{ $dv->Ma }})</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
 
             </div>
 

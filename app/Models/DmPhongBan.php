@@ -42,6 +42,14 @@ class DmPhongBan extends Model
     }
 
     /**
+     * Relationship: Một phòng ban có nhiều thông tin nhân viên công việc
+     */
+    public function ttNhanVienCongViec()
+    {
+        return $this->hasMany(TtNhanVienCongViec::class, 'PhongBanId');
+    }
+
+    /**
      * Relationship: Một phòng ban có nhiều hợp đồng
      */
     public function hopDongs()

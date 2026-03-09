@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\ChamCong;
 use App\Models\NhanVien;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\ChamCongImport;
 
 class ChamCongController extends Controller
 {
@@ -66,9 +68,53 @@ class ChamCongController extends Controller
         $today = $now->toDateString();
         $nhanVienId = $request->nhan_vien_id;
 
-        // Configuration
-        $startWorkTime = '08:00:00';
-        $endWorkTime = '17:30:00';
+        // Check if employee has a schedule today
+        $lichLamViec = \App\Models\LichLamViec::with('caLamViec')
+            ->where('NhanVienId', $nhanVienId)
+            ->whereDate('NgayLamViec', $today)
+            ->first();
+
+        if (!$lichLamViec || !$lichLamViec->caLamViec) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có ca nào hôm nay để chấm công.'
+            ]);
+        }
+
+        $caLamViec = $lichLamViec->caLamViec;
+        $gioVao = Carbon::parse($caLamViec->GioVao);
+        $gioRa = Carbon::parse($caLamViec->GioRa);
+
+        // Adjust for overnight shift
+        if ($caLamViec->LaCaQuaDem) {
+            if ($gioRa->lessThan($gioVao)) {
+                $gioRa->addDay();
+            }
+        }
+
+        // Validate if current time is within shift limits (allow 60 mins before and after)
+        $allowedStart = (clone $gioVao)->subMinutes(60);
+        $allowedEnd = (clone $gioRa)->addMinutes(60);
+
+        // Ensure $now has the same date context for comparison
+        $currentTime = Carbon::parse($now->format('H:i:s'));
+
+        // For overnight shifts, if the current time is very early morning (e.g. 01:00 AM) and shift started yesterday,
+        // we need to add a day to the $currentTime for proper comparison
+        if ($caLamViec->LaCaQuaDem && $currentTime->hour < 12) {
+            $currentTime->addDay();
+        }
+
+        if (!$currentTime->between($allowedStart, $allowedEnd)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hiện tại không nằm trong thời gian cho phép chấm công của ca làm việc (' . $caLamViec->TenCa . ').'
+            ]);
+        }
+
+        // Setup work times based on the shift
+        $startWorkTime = $caLamViec->GioVao;
+        $endWorkTime = $caLamViec->GioRa;
 
         // Check if there is already a record for today
         $attendance = ChamCong::where('NhanVienId', $nhanVienId)
@@ -170,5 +216,112 @@ class ChamCongController extends Controller
         $request->merge(['nhan_vien_id' => $nhanVien->id]);
 
         return $this->Tao($request);
+    }
+
+    /**
+     * View Lịch làm việc (Schedule Matrix for Teams)
+     */
+    public function schedule(Request $request)
+    {
+        $month = $request->month ?? Carbon::now()->month;
+        $year = $request->year ?? Carbon::now()->year;
+
+        // Lấy danh sách Tổ đội kèm phòng ban
+        $toDois = \App\Models\DmToDoi::with('phongBan')->orderBy('Ten')->get();
+
+        // Lấy danh sách tất cả các ca làm việc
+        $caLamViecs = \App\Models\DmCaLamViec::all();
+
+        $daysInMonth = Carbon::createFromDate($year, $month, 1)->daysInMonth;
+
+        // Lấy danh sách lịch làm việc đã lưu của tháng này
+        $schedules = \App\Models\LichLamViec::with('caLamViec')
+            ->whereYear('NgayLamViec', $year)
+            ->whereMonth('NgayLamViec', $month)
+            ->get();
+
+        $scheduleMap = [];
+        foreach ($schedules as $schedule) {
+            if ($schedule->ToDoiId) {
+                // Formatting date to group by team and date
+                $dateStr = Carbon::parse($schedule->NgayLamViec)->format('Y-m-d');
+                $scheduleMap[$schedule->ToDoiId][$dateStr] = $schedule->caLamViec ? $schedule->caLamViec->MaCa : '';
+            }
+        }
+
+        return view('attendance.schedule', compact('toDois', 'caLamViecs', 'month', 'year', 'daysInMonth', 'scheduleMap'));
+    }
+
+    /**
+     * Lưu lịch làm việc via AJAX (Tổ đội mass save)
+     */
+    public function saveSchedule(Request $request)
+    {
+        $request->validate([
+            'schedules' => 'required|array',
+            'schedules.*.ToDoiId' => 'required|exists:dm_to_dois,id',
+            'schedules.*.NgayLamViec' => 'required|date',
+            'schedules.*.CaId' => 'nullable|string',
+        ]);
+
+        foreach ($request->schedules as $item) {
+            $toDoiId = $item['ToDoiId'];
+            $ngayLamViec = $item['NgayLamViec'];
+            $caId = $item['CaId'];
+
+            if (empty($caId) || strtoupper($caId) === 'OFF') {
+                // Delete records if empty selection or OFF
+                \App\Models\LichLamViec::where('ToDoiId', $toDoiId)
+                    ->whereDate('NgayLamViec', $ngayLamViec)
+                    ->delete();
+            } else {
+                $dbCaId = \App\Models\DmCaLamViec::where('MaCa', $caId)->value('id');
+                if ($dbCaId) {
+                    // Update or Create the schedule cho Tổ Đội (bỏ qua NhanVienId)
+                    \App\Models\LichLamViec::updateOrCreate(
+                        [
+                            'ToDoiId' => $toDoiId,
+                            'NgayLamViec' => $ngayLamViec,
+                        ],
+                        [
+                            'CaId' => $dbCaId,
+                            'NhanVienId' => null,
+                        ]
+                    );
+                }
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Đã lưu lịch làm việc thành công']);
+    }
+    public function importView()
+    {
+        return view('attendance.import');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv|max:2048',
+        ], [
+            'file.required' => 'Vui lòng chọn file Excel.',
+            'file.mimes' => 'File phải có định dạng xlsx, xls hoặc csv.',
+            'file.max' => 'Dung lượng file không được vượt quá 2MB.',
+        ]);
+
+        try {
+            $import = new ChamCongImport();
+            Excel::import($import, $request->file('file'));
+
+            if (count($import->errors) > 0) {
+                return back()->with('import_errors', $import->errors)
+                    ->with('import_success_count', $import->successCount);
+            }
+
+            return redirect()->route('cham-cong.danh-sach')
+                ->with('success', "Đã import thành công {$import->successCount} bản ghi chấm công!");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Lỗi khi import file: ' . $e->getMessage());
+        }
     }
 }

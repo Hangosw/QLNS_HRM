@@ -1,0 +1,331 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\CauHinhBaoHiem;
+use App\Models\CauHinhLichLamViec;
+use App\Models\ChamCong;
+use App\Models\TangCa;
+use Carbon\Carbon;
+
+/**
+ * LuongService - Tính lương tự động cho nhân viên
+ *
+ * Phân loại theo LoaiNhanVien trong tt_nhan_vien_cong_viecs:
+ *   0 = Công nhân  → Tính theo ngày công thực tế (chấm công)
+ *   1 = Văn phòng  → Tính theo lương cứng hợp đồng
+ *
+ * Công thức chung:
+ *   Khấu trừ BH = LuongCoBan × Tổng tỉ lệ NLĐ
+ *   Giảm trừ GC = 11.000.000 + (số NPT × 4.400.000)
+ *   Thuế TNCN   = Lũy tiến 7 bậc
+ *   Thực nhận   = Thu nhập − Khấu trừ BH − Thuế TNCN
+ */
+class LuongService
+{
+    /** Giảm trừ gia cảnh (Nghị quyết 954/2020/UBTVQH14) */
+    const GIAM_TRU_BAN_THAN = 11_000_000;
+    const GIAM_TRU_MOI_NGUOI = 4_400_000;
+
+    /** Biểu thuế lũy tiến từng phần */
+    const THUE_BAC_LUY_TIEN = [
+        ['limit' => 5_000_000, 'rate' => 5],
+        ['limit' => 10_000_000, 'rate' => 10],
+        ['limit' => 18_000_000, 'rate' => 15],
+        ['limit' => 32_000_000, 'rate' => 20],
+        ['limit' => 52_000_000, 'rate' => 25],
+        ['limit' => 80_000_000, 'rate' => 30],
+        ['limit' => PHP_INT_MAX, 'rate' => 35],
+    ];
+
+    /**
+     * Tính lương đầy đủ — phân nhánh theo LoaiNhanVien.
+     *
+     * @param  \App\Models\NhanVien  $nhanVien  đã eager-load hopDongs, thanNhans, ttCongViec
+     * @param  int  $thang
+     * @param  int  $nam
+     * @return array
+     */
+    public static function tinhLuong($nhanVien, int $thang, int $nam): array
+    {
+        $loai = $nhanVien->ttCongViec?->LoaiNhanVien ?? 1; // mặc định văn phòng
+
+        if ($loai === 0) {
+            return self::tinhLuongCongNhan($nhanVien, $thang, $nam);
+        }
+
+        return self::tinhLuongVanPhong($nhanVien, $thang, $nam);
+    }
+
+    // =========================================================
+    // CÔNG NHÂN — dựa trên chấm công thực tế
+    // =========================================================
+
+    public static function tinhLuongCongNhan($nhanVien, int $thang, int $nam): array
+    {
+        $hopDong = $nhanVien->hopDongs ? $nhanVien->hopDongs->first() : null;
+        $luongCoBan = (float) ($hopDong?->LuongCoBan ?? 0);
+
+        // --- Ngày công chuẩn (từ cấu hình lịch làm việc) ---
+        $ngayCongChuan = self::tinhNgayCongChuan($thang, $nam);
+
+        // --- Ngày công thực tế (chấm công có giờ Ra) ---
+        $ngayCongThucTe = self::tinhNgayCongThucTe($nhanVien->id, $thang, $nam);
+
+        // Tỉ lệ ngày công (0.0 → 1.0)
+        $tiLeNgayCong = $ngayCongChuan > 0 ? ($ngayCongThucTe / $ngayCongChuan) : 0;
+
+        // --- Lương theo ngày công ---
+        $donGiaNgay = $ngayCongChuan > 0 ? $luongCoBan / $ngayCongChuan : 0;
+        $luongNgayCong = round($donGiaNgay * $ngayCongThucTe, 2);
+
+        // --- Phụ cấp tỉ lệ theo ngày công ---
+        // Công nhân không đi làm → phụ cấp = 0; đi đủ → hưởng 100%
+        $tongPhuCapHD = self::tinhTongPhuCap($hopDong);
+        $tongPhuCap = round($tongPhuCapHD * $tiLeNgayCong, 2);
+
+        // --- Tăng ca đã duyệt ---
+        $tongTangCaTien = self::tinhTienTangCa($nhanVien->id, $thang, $nam, $luongCoBan);
+
+        // --- Tổng thu nhập ---
+        $tongThuNhap = $luongNgayCong + $tongPhuCap + $tongTangCaTien;
+
+        // --- Bảo hiểm (tính trên LuongCoBan, đúng quy định BHXH) ---
+        $baoHiems = CauHinhBaoHiem::getHieuLucHienTai();
+        $tongKhauTruBH = 0;
+        foreach ($baoHiems as $bh) {
+            $tongKhauTruBH += ($luongCoBan * $bh->TiLeNhanVien) / 100;
+        }
+
+        // --- Giảm trừ gia cảnh ---
+        $thanNhans = $nhanVien->thanNhans ?? collect();
+        $soNguoiPhuThuoc = $thanNhans->where('LaGiamTruGiaCanh', 1)->count();
+        $tongGiamTru = self::GIAM_TRU_BAN_THAN + ($soNguoiPhuThuoc * self::GIAM_TRU_MOI_NGUOI);
+
+        // --- Thuế TNCN ---
+        $thuNhapChiuThue = max(0, $tongThuNhap - $tongKhauTruBH);
+        $thuNhapTinhThue = max(0, $thuNhapChiuThue - $tongGiamTru);
+        $thueTNCN = self::tinhThueLuyTien($thuNhapTinhThue);
+
+        $tongKhauTru = $tongKhauTruBH + $thueTNCN;
+        $luongThucNhan = max(0, $tongThuNhap - $tongKhauTru);
+
+        return [
+            'loai_nhan_vien' => 0,
+            'loai_nhan_vien_text' => 'Công nhân',
+            // Thu nhập
+            'luong_co_ban' => $luongCoBan,
+            'ngay_cong_chuan' => $ngayCongChuan,
+            'ngay_cong_thuc_te' => $ngayCongThucTe,
+            'don_gia_ngay' => round($donGiaNgay, 2),
+            'luong_ngay_cong' => $luongNgayCong,
+            'tong_phu_cap' => $tongPhuCap,
+            'tong_tang_ca' => $tongTangCaTien,
+            'tong_thu_nhap' => $tongThuNhap,
+            // Khấu trừ
+            'tong_khau_tru_bh' => $tongKhauTruBH,
+            'so_nguoi_phu_thuoc' => $soNguoiPhuThuoc,
+            'tong_giam_tru' => $tongGiamTru,
+            'thu_nhap_chiu_thue' => $thuNhapChiuThue,
+            'thu_nhap_tinh_thue' => $thuNhapTinhThue,
+            'thue_tncn' => $thueTNCN,
+            'tong_khau_tru' => $tongKhauTru,
+            // Kết quả
+            'luong_thuc_nhan' => $luongThucNhan,
+            // Meta
+            'thang' => $thang,
+            'nam' => $nam,
+            'hop_dong' => $hopDong,
+            'bao_hiems' => $baoHiems,
+        ];
+    }
+
+    // =========================================================
+    // VĂN PHÒNG — lương cứng theo hợp đồng
+    // =========================================================
+
+    public static function tinhLuongVanPhong($nhanVien, int $thang, int $nam): array
+    {
+        $hopDong = $nhanVien->hopDongs ? $nhanVien->hopDongs->first() : null;
+        $luongCoBan = (float) ($hopDong?->LuongCoBan ?? 0);
+
+        // --- Phụ cấp ---
+        $tongPhuCap = self::tinhTongPhuCap($hopDong);
+
+        // --- Tăng ca đã duyệt ---
+        $tongTangCaTien = self::tinhTienTangCa($nhanVien->id, $thang, $nam, $luongCoBan);
+
+        // --- Tổng thu nhập ---
+        $tongThuNhap = $luongCoBan + $tongPhuCap + $tongTangCaTien;
+
+        // --- Bảo hiểm ---
+        $baoHiems = CauHinhBaoHiem::getHieuLucHienTai();
+        $tongKhauTruBH = 0;
+        foreach ($baoHiems as $bh) {
+            $tongKhauTruBH += ($luongCoBan * $bh->TiLeNhanVien) / 100;
+        }
+
+        // --- Giảm trừ gia cảnh ---
+        $thanNhans = $nhanVien->thanNhans ?? collect();
+        $soNguoiPhuThuoc = $thanNhans->where('LaGiamTruGiaCanh', 1)->count();
+        $tongGiamTru = self::GIAM_TRU_BAN_THAN + ($soNguoiPhuThuoc * self::GIAM_TRU_MOI_NGUOI);
+
+        // --- Thuế TNCN ---
+        $thuNhapChiuThue = max(0, $tongThuNhap - $tongKhauTruBH);
+        $thuNhapTinhThue = max(0, $thuNhapChiuThue - $tongGiamTru);
+        $thueTNCN = self::tinhThueLuyTien($thuNhapTinhThue);
+
+        $tongKhauTru = $tongKhauTruBH + $thueTNCN;
+        $luongThucNhan = max(0, $tongThuNhap - $tongKhauTru);
+
+        return [
+            'loai_nhan_vien' => 1,
+            'loai_nhan_vien_text' => 'Văn phòng',
+            // Thu nhập
+            'luong_co_ban' => $luongCoBan,
+            'ngay_cong_chuan' => null,
+            'ngay_cong_thuc_te' => null,
+            'don_gia_ngay' => null,
+            'luong_ngay_cong' => null,
+            'tong_phu_cap' => $tongPhuCap,
+            'tong_tang_ca' => $tongTangCaTien,
+            'tong_thu_nhap' => $tongThuNhap,
+            // Khấu trừ
+            'tong_khau_tru_bh' => $tongKhauTruBH,
+            'so_nguoi_phu_thuoc' => $soNguoiPhuThuoc,
+            'tong_giam_tru' => $tongGiamTru,
+            'thu_nhap_chiu_thue' => $thuNhapChiuThue,
+            'thu_nhap_tinh_thue' => $thuNhapTinhThue,
+            'thue_tncn' => $thueTNCN,
+            'tong_khau_tru' => $tongKhauTru,
+            // Kết quả
+            'luong_thuc_nhan' => $luongThucNhan,
+            // Meta
+            'thang' => $thang,
+            'nam' => $nam,
+            'hop_dong' => $hopDong,
+            'bao_hiems' => $baoHiems,
+        ];
+    }
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
+    /**
+     * Tính số ngày làm việc chuẩn trong tháng dựa theo cau_hinh_lich_lam_viecs.
+     * Lặp qua từng ngày trong tháng, xem thứ đó có CoLamViec = 1 không.
+     * PHP: dayOfWeek: 0=CN, 1=T2 ... 6=T7. Bảng: Thu (1=CN?, 2=T2?)
+     * → Chuẩn hoá: bảng Thu(1..7) = Carbon dayOfWeekIso (1=T2..7=CN)
+     */
+    public static function tinhNgayCongChuan(int $thang, int $nam): int
+    {
+        // Lấy config lịch làm việc, key = Thu (ISO: 1=T2..7=CN)
+        $lichLamViec = CauHinhLichLamViec::all()->keyBy('Thu');
+
+        $soNgay = Carbon::createFromDate($nam, $thang, 1)->daysInMonth;
+        $demNgay = 0;
+
+        for ($ngay = 1; $ngay <= $soNgay; $ngay++) {
+            $date = Carbon::createFromDate($nam, $thang, $ngay);
+            $thuISO = $date->dayOfWeekIso; // 1=T2 ... 7=CN
+            $config = $lichLamViec->get($thuISO);
+
+            if ($config && $config->CoLamViec == 1) {
+                $demNgay++;
+            }
+        }
+
+        return $demNgay ?: 26; // fallback an toàn nếu chưa cấu hình
+    }
+
+    /**
+     * Đếm số ngày chấm công thực tế của nhân viên trong tháng
+     * (chỉ tính bản ghi có Ra IS NOT NULL — đã check-out).
+     */
+    public static function tinhNgayCongThucTe(int $nhanVienId, int $thang, int $nam): int
+    {
+        return ChamCong::where('NhanVienId', $nhanVienId)
+            ->whereYear('Vao', $nam)
+            ->whereMonth('Vao', $thang)
+            ->whereNotNull('Ra')
+            ->count();
+    }
+
+    /**
+     * Tổng phụ cấp từ hợp đồng.
+     */
+    public static function tinhTongPhuCap($hopDong): float
+    {
+        if (!$hopDong)
+            return 0;
+
+        $fields = [
+            'PhuCapChucVu',
+            'PhuCapTrachNhiem',
+            'PhuCapDocHai',
+            'PhuCapThamNien',
+            'PhuCapKhuVuc',
+            'PhuCapAnTrua',
+            'PhuCapXangXe',
+            'PhuCapDienThoai',
+            'PhuCapKhac',
+        ];
+        $tong = 0;
+        foreach ($fields as $field) {
+            $tong += (float) ($hopDong->$field ?? 0);
+        }
+        return $tong;
+    }
+
+    /**
+     * Tính tiền tăng ca trong tháng cho nhân viên.
+     * Lương giờ = LuongCoBan / (ngày chuẩn × giờ/ngày)
+     * Tiền TC   = Tổng giờ × Lương giờ × Hệ số loại TC
+     */
+    public static function tinhTienTangCa(int $nhanVienId, int $thang, int $nam, float $luongCoBan): float
+    {
+        $ngayCongChuan = 26;
+        $gioMoiNgay = 8;
+        $luongGio = $luongCoBan / ($ngayCongChuan * $gioMoiNgay);
+
+        $tangCas = TangCa::with('loaiTangCa')
+            ->where('NhanVienId', $nhanVienId)
+            ->where('TrangThai', 'da_duyet')
+            ->whereYear('Ngay', $nam)
+            ->whereMonth('Ngay', $thang)
+            ->get();
+
+        $tongTien = 0;
+        foreach ($tangCas as $tc) {
+            $heSo = $tc->loaiTangCa?->HeSo ?? 1.5;
+            $tongTien += ($tc->Tong ?? 0) * $luongGio * $heSo;
+        }
+
+        return round($tongTien, 2);
+    }
+
+    /**
+     * Tính thuế TNCN lũy tiến từng phần.
+     */
+    public static function tinhThueLuyTien(float $thuNhapTinhThue): float
+    {
+        if ($thuNhapTinhThue <= 0)
+            return 0;
+
+        $thueTNCN = 0;
+        $remaining = $thuNhapTinhThue;
+        $prevLimit = 0;
+
+        foreach (self::THUE_BAC_LUY_TIEN as $bracket) {
+            if ($remaining <= 0)
+                break;
+            $taxable = min($remaining, $bracket['limit'] - $prevLimit);
+            $thueTNCN += $taxable * $bracket['rate'] / 100;
+            $remaining -= $taxable;
+            $prevLimit = $bracket['limit'];
+        }
+
+        return round($thueTNCN, 2);
+    }
+}

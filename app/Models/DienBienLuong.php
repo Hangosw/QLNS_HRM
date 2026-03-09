@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class DienBienLuong extends Model
 {
     protected $table = 'dien_bien_luongs';
-    
+
     protected $fillable = [
         'NhanVienId',
+        'HopDongId',
         'NgachLuongId',
         'BacLuongId',
         'PhuCapVuotKhung', // %
@@ -54,9 +55,9 @@ class DienBienLuong extends Model
     public static function getCurrentForEmployee($nhanVienId)
     {
         return self::where('NhanVienId', $nhanVienId)
-                   ->where('NgayHuong', '<=', now())
-                   ->orderBy('NgayHuong', 'desc')
-                   ->first();
+            ->where('NgayHuong', '<=', now())
+            ->orderBy('NgayHuong', 'desc')
+            ->first();
     }
 
     /**

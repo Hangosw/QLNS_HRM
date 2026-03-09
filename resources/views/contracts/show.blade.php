@@ -209,13 +209,20 @@
                 </svg>
                 Chỉnh sửa
             </a>
-            <button class="btn btn-primary" onclick="window.print()">
+            <a href="{{ route('hop-dong.download-word', $hopDong->id) }}" class="btn btn-success">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Tải Word
+            </a>
+            <a href="{{ route('hop-dong.print', $hopDong->id) }}" target="_blank" class="btn btn-primary">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 In hợp đồng
-            </button>
+            </a>
         </div>
     </div>
 
@@ -253,7 +260,7 @@
                         <i class="bi bi-file-earmark-text"></i>
                         @php
                             $loai = $hopDong->Loai;
-                            $label = $hopDong->loaiHopDong->Ten ?? $loai;
+                            $label = $hopDong->loaiHopDong->TenLoai ?? $loai;
                             $textColor = '#1e40af'; // Default info color
 
                             if ($loai === 'thu_viec') {
@@ -313,7 +320,7 @@
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Loại hợp đồng</div>
-                    <div class="detail-value">{{ $hopDong->loaiHopDong->Ten ?? 'N/A' }}</div>
+                    <div class="detail-value">{{ $hopDong->loaiHopDong->TenLoai ?? 'N/A' }}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Hình thức</div>

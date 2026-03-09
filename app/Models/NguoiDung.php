@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class NguoiDung extends Authenticatable
 {
-    use Notifiable;
+    use Notifiable, HasRoles;
 
     protected $table = 'nguoi_dungs';
 
@@ -54,6 +55,14 @@ class NguoiDung extends Authenticatable
     /**
      * Relationship: Mỗi người dùng gắn với một nhân viên
      */
+    /**
+     * Relationship: Các đơn vị được phép quản lý (dùng để phân quyền)
+     */
+    public function donVis()
+    {
+        return $this->belongsToMany(DonVi::class, 'nguoi_dung_don_vi', 'nguoi_dung_id', 'don_vi_id');
+    }
+
     public function nhanVien()
     {
         return $this->hasOne(NhanVien::class, 'NguoiDungId');

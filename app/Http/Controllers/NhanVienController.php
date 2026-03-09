@@ -11,6 +11,8 @@ use App\Models\TtNhanVienCongViec;
 use App\Models\NguoiDung;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\NhanVienImport;
 
 class NhanVienController extends Controller
 {
@@ -21,7 +23,8 @@ class NhanVienController extends Controller
 
     public function DataNhanVien(Request $request)
     {
-        $query = NhanVien::with(['ttCongViec.phongBan.donVi', 'ttCongViec.chucVu']);
+        $query = NhanVien::with(['ttCongViec.phongBan.donVi', 'ttCongViec.chucVu'])
+            ->byUnit();
 
         // Server-side processing
         $totalRecords = $query->count();
@@ -62,11 +65,50 @@ class NhanVienController extends Controller
         ]);
     }
 
+    public function importView()
+    {
+        return view('employees.import');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv|max:2048',
+        ], [
+            'file.required' => 'Vui lòng chọn file Excel.',
+            'file.mimes' => 'File phải có định dạng xlsx, xls hoặc csv.',
+            'file.max' => 'Dung lượng file không được vượt quá 2MB.',
+        ]);
+
+        try {
+            $import = new NhanVienImport();
+            Excel::import($import, $request->file('file'));
+
+            if (count($import->errors) > 0) {
+                // If there are errors, return back with the array of errors and a success count
+                return back()->with('import_errors', $import->errors)
+                    ->with('import_success_count', $import->successCount);
+            }
+
+            return redirect()->route('nhan-vien.danh-sach')
+                ->with('success', "Đã import thành công {$import->successCount} nhân viên!");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Lỗi khi import file: ' . $e->getMessage());
+        }
+    }
+
     public function Info($id)
     {
         $employee = NhanVien::with([
             'ttCongViec.chucVu',
-            'ttCongViec.phongBan.donVi'
+            'ttCongViec.phongBan.donVi',
+            'thanNhans',
+            'dienBienLuongs' => function ($q) {
+                $q->with(['ngachLuong', 'bacLuong'])->orderBy('NgayHuong', 'desc');
+            },
+            'luongs' => function ($q) {
+                $q->orderBy('ThoiGian', 'desc');
+            },
         ])->findOrFail($id);
 
         return view('employees.show', compact('employee'));
@@ -472,6 +514,7 @@ class NhanVienController extends Controller
      */
     public function checkChucVuTonTai(Request $request)
     {
+        $donViId = $request->don_vi_id; // Thêm don_vi_id
         $phongBanId = $request->phong_ban_id;
         $chucVuId = $request->chuc_vu_id;
         $nhanVienId = $request->nhan_vien_id; // Null khi tạo mới, có giá trị khi cập nhật
@@ -487,8 +530,9 @@ class NhanVienController extends Controller
             ]);
         }
 
-        // Kiểm tra xem đã có nhân viên nào giữ chức vụ Loại 1 này trong phòng ban chưa
-        $query = TtNhanVienCongViec::where('PhongBanId', $phongBanId)
+        // Kiểm tra logic: 1 Đơn vị, 1 Phòng ban, 1 Chức vụ loại 1
+        $query = TtNhanVienCongViec::where('DonViId', $donViId)
+            ->where('PhongBanId', $phongBanId)
             ->where('ChucVuId', $chucVuId);
 
         // Nếu đang cập nhật, loại trừ nhân viên hiện tại
@@ -504,7 +548,7 @@ class NhanVienController extends Controller
 
             return response()->json([
                 'exists' => true,
-                'message' => "Đã có nhân viên " . ($nhanVien ? $nhanVien->Ten : '') . " giữ chức vụ {$chucVu->Ten} trong phòng ban này rồi.",
+                'message' => "Đơn vị và Phòng ban này đã có nhân viên " . ($nhanVien ? $nhanVien->Ten : '') . " giữ chức vụ {$chucVu->Ten} rồi.",
                 'chuc_vu_ten' => $chucVu->Ten
             ]);
         }

@@ -360,6 +360,36 @@
             color: #374151;
         }
 
+        .badge-purple {
+            background-color: #e9d5ff;
+            color: #6b21a8;
+        }
+
+        /* Action Buttons */
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        .btn-icon:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
+        }
+
+        .btn-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
         /* Search Bar */
         .search-bar {
             position: relative;
@@ -742,6 +772,9 @@
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
     @stack('styles')
 </head>
 
@@ -762,206 +795,268 @@
                     </svg>
                     <span>Trang chủ</span>
                 </a>
-                <a href="{{ route('nguoi-dung.danh-sach') }}"
-                    class="nav-item {{ request()->routeIs('nguoi-dung.*') ? 'active' : '' }}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span>Người dùng</span>
-                </a>
-                <!-- Đơn vị với Submenu -->
-                <div class="nav-item-parent">
-                    <div class="nav-item {{ request()->routeIs('don-vi.*') || request()->routeIs('phong-ban.*') || request()->routeIs('chuc-vu.*') ? 'active' : '' }}"
-                        onclick="toggleSubmenu('don-vi-submenu')" style="cursor: pointer;">
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span>Đơn vị</span>
-                        </div>
-                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                @can('Quản lý người dùng')
+                    <a href="{{ route('nguoi-dung.danh-sach') }}"
+                        class="nav-item {{ request()->routeIs('nguoi-dung.*') ? 'active' : '' }}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
-                    </div>
-                    <div class="submenu" id="don-vi-submenu">
-                        <a href="{{ route('don-vi.index') }}"
-                            class="submenu-item {{ request()->routeIs('don-vi.*') ? 'active' : '' }}">
-                            <span>Đơn vị</span>
-                        </a>
-                        <a href="{{ route('phong-ban.danh-sach') }}"
-                            class="submenu-item {{ request()->routeIs('phong-ban.*') ? 'active' : '' }}">
-                            <span>Phòng ban</span>
-                        </a>
-                        <a href="{{ route('chuc-vu.index') }}"
-                            class="submenu-item {{ request()->routeIs('chuc-vu.*') ? 'active' : '' }}">
-                            <span>Chức vụ</span>
-                        </a>
-                    </div>
-                </div>
-                <!-- Nhân viên với Submenu -->
-                <div class="nav-item-parent">
-                    <div class="nav-item {{ request()->routeIs('employees.*') ? 'active' : '' }}"
-                        onclick="toggleSubmenu('employees-submenu')" style="cursor: pointer;">
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        <span>Người dùng</span>
+                    </a>
+                @endcan
+
+                @can('Quản lý tổ chức')
+                    <div class="nav-item-parent">
+                        <div class="nav-item {{ request()->routeIs('don-vi.*') || request()->routeIs('phong-ban.*') || request()->routeIs('chuc-vu.*') || request()->routeIs('to-doi.*') ? 'active' : '' }}"
+                            onclick="toggleSubmenu('don-vi-submenu')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span>Đơn vị</span>
+                            </div>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                            <span>Nhân viên</span>
                         </div>
-                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <div class="submenu" id="don-vi-submenu">
+                            <a href="{{ route('don-vi.index') }}"
+                                class="submenu-item {{ request()->routeIs('don-vi.*') ? 'active' : '' }}">
+                                <span>Đơn vị</span>
+                            </a>
+                            <a href="{{ route('phong-ban.danh-sach') }}"
+                                class="submenu-item {{ request()->routeIs('phong-ban.*') ? 'active' : '' }}">
+                                <span>Phòng ban</span>
+                            </a>
+                            <a href="{{ route('to-doi.danh-sach') }}"
+                                class="submenu-item {{ request()->routeIs('to-doi.*') ? 'active' : '' }}">
+                                <span>Tổ đội</span>
+                            </a>
+                            <a href="{{ route('chuc-vu.index') }}"
+                                class="submenu-item {{ request()->routeIs('chuc-vu.*') ? 'active' : '' }}">
+                                <span>Chức vụ</span>
+                            </a>
+                        </div>
                     </div>
-                    <div class="submenu" id="employees-submenu">
-                        <a href="{{ route('nhan-vien.danh-sach') }}"
-                            class="submenu-item {{ request()->routeIs('nhan-vien.danh-sach') ? 'active' : '' }}">
-                            <span>Danh sách nhân viên</span>
-                        </a>
-                    </div>
-                </div>
-                <a href="{{ route('hop-dong.danh-sach') }}"
-                    class="nav-item {{ request()->routeIs('hop-dong.*') ? 'active' : '' }}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>Hợp đồng</span>
-                </a>
-                <!-- Chấm công với Submenu -->
-                <div class="nav-item-parent">
-                    <div class="nav-item {{ request()->routeIs('cham-cong.*') ? 'active' : '' }}"
-                        onclick="toggleSubmenu('attendance-submenu')" style="cursor: pointer;">
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                @endcan
+
+                @can('Xem nhân viên')
+                    <div class="nav-item-parent">
+                        <div class="nav-item {{ request()->routeIs('nhan-vien.*') || request()->routeIs('dieu-chuyen.*') || request()->routeIs('cong-tac.*') ? 'active' : '' }}"
+                            onclick="toggleSubmenu('employees-submenu')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span>Nhân viên</span>
+                            </div>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                            <span>Chấm công</span>
                         </div>
-                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        <div class="submenu" id="employees-submenu">
+                            <a href="{{ route('nhan-vien.danh-sach') }}"
+                                class="submenu-item {{ request()->routeIs('nhan-vien.danh-sach') ? 'active' : '' }}">
+                                <span>Danh sách nhân viên</span>
+                            </a>
+                            <a href="{{ route('dieu-chuyen.index') }}"
+                                class="submenu-item {{ request()->routeIs('dieu-chuyen.*') ? 'active' : '' }}">
+                                <span>Điều chuyển nội bộ</span>
+                            </a>
+                            @can('Xem công tác')
+                                <a href="{{ route('cong-tac.danh-sach') }}"
+                                    class="submenu-item {{ request()->routeIs('cong-tac.*') ? 'active' : '' }}">
+                                    <span>Công tác</span>
+                                </a>
+                            @endcan
+                        </div>
+                    </div>
+                @endcan
+
+                @can('Xem hợp đồng')
+                    <a href="{{ route('hop-dong.danh-sach') }}"
+                        class="nav-item {{ request()->routeIs('hop-dong.*') ? 'active' : '' }}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                    </div>
-                    <div class="submenu" id="attendance-submenu">
-                        <a href="{{ route('cham-cong.danh-sach') }}"
-                            class="submenu-item {{ request()->routeIs('cham-cong.danh-sach') ? 'active' : '' }}">
-                            <span>Danh sách chấm công</span>
-                        </a>
-                        <a href="{{ route('cham-cong.taoView') }}"
-                            class="submenu-item {{ request()->routeIs('cham-cong.taoView') ? 'active' : '' }}">
-                            <span>Chấm công (Admin)</span>
-                        </a>
-                        <a href="{{ route('cham-cong.ca-nhan') }}"
-                            class="submenu-item {{ request()->routeIs('cham-cong.ca-nhan') ? 'active' : '' }}">
-                            <span>Chấm công cá nhân</span>
-                        </a>
-                    </div>
-                </div>
-                <!-- Tăng ca & Nghỉ phép với Submenu -->
-                <div class="nav-item-parent">
-                    <div class="nav-item {{ request()->routeIs('tang-ca.*') || request()->routeIs('nghi-phep.*') || request()->routeIs('overtime-leave.*') ? 'active' : '' }}"
-                        onclick="toggleSubmenu('overtime-leave-submenu')" style="cursor: pointer;">
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <span>Hợp đồng</span>
+                    </a>
+                @endcan
+
+                @can('Xem chấm công')
+                    <div class="nav-item-parent">
+                        <div class="nav-item {{ request()->routeIs('cham-cong.*') ? 'active' : '' }}"
+                            onclick="toggleSubmenu('attendance-submenu')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Chấm công</span>
+                            </div>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                            <span>Tăng ca & Nghỉ phép</span>
                         </div>
-                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <div class="submenu" id="attendance-submenu">
+                            <a href="{{ route('cham-cong.danh-sach') }}"
+                                class="submenu-item {{ request()->routeIs('cham-cong.danh-sach') ? 'active' : '' }}">
+                                <span>Danh sách chấm công</span>
+                            </a>
+                            <a href="{{ route('cham-cong.taoView') }}"
+                                class="submenu-item {{ request()->routeIs('cham-cong.taoView') ? 'active' : '' }}">
+                                <span>Chấm công (Admin)</span>
+                            </a>
+                            <a href="{{ route('cham-cong.ca-nhan') }}"
+                                class="submenu-item {{ request()->routeIs('cham-cong.ca-nhan') ? 'active' : '' }}">
+                                <span>Chấm công cá nhân</span>
+                            </a>
+                            <a href="{{ route('cham-cong.schedule') }}"
+                                class="submenu-item {{ request()->routeIs('cham-cong.schedule') ? 'active' : '' }}">
+                                <span>Lịch làm việc</span>
+                            </a>
+                        </div>
                     </div>
-                    <div class="submenu" id="overtime-leave-submenu">
-                        <a href="{{ route('tang-ca.danh-sach') }}"
-                            class="submenu-item {{ request()->routeIs('tang-ca.danh-sach') ? 'active' : '' }}">
-                            <span>Tăng ca (Admin)</span>
-                        </a>
-                        <a href="{{ route('tang-ca.ca-nhan') }}"
-                            class="submenu-item {{ request()->routeIs('tang-ca.ca-nhan') ? 'active' : '' }}">
-                            <span>Đăng ký tăng ca</span>
-                        </a>
-                        <a href="{{ route('nghi-phep.danh-sach') }}"
-                            class="submenu-item {{ request()->routeIs('nghi-phep.danh-sach') ? 'active' : '' }}">
-                            <span>Nghỉ phép (Admin)</span>
-                        </a>
-                        <a href="{{ route('nghi-phep.ca-nhan') }}"
-                            class="submenu-item {{ request()->routeIs('nghi-phep.ca-nhan') ? 'active' : '' }}">
-                            <span>Đăng ký nghỉ phép</span>
-                        </a>
-                    </div>
-                </div>
-                <!-- Văn thư với Submenu -->
-                <div class="nav-item-parent">
-                    <div class="nav-item {{ request()->routeIs('documents.*') ? 'active' : '' }}"
-                        onclick="toggleSubmenu('documents-submenu')" style="cursor: pointer;">
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                @endcan
+
+                @can('Xem tăng ca nghỉ phép')
+                    <div class="nav-item-parent">
+                        <div class="nav-item {{ request()->routeIs('tang-ca.*') || request()->routeIs('nghi-phep.*') || request()->routeIs('overtime-leave.*') ? 'active' : '' }}"
+                            onclick="toggleSubmenu('overtime-leave-submenu')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Tăng ca & Nghỉ phép</span>
+                            </div>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                            <span>Văn thư</span>
                         </div>
-                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <div class="submenu" id="overtime-leave-submenu">
+                            <a href="{{ route('tang-ca.danh-sach') }}"
+                                class="submenu-item {{ request()->routeIs('tang-ca.danh-sach') ? 'active' : '' }}">
+                                <span>Tăng ca (Admin)</span>
+                            </a>
+                            <a href="{{ route('tang-ca.ca-nhan') }}"
+                                class="submenu-item {{ request()->routeIs('tang-ca.ca-nhan') ? 'active' : '' }}">
+                                <span>Đăng ký tăng ca</span>
+                            </a>
+                            <a href="{{ route('nghi-phep.danh-sach') }}"
+                                class="submenu-item {{ request()->routeIs('nghi-phep.danh-sach') ? 'active' : '' }}">
+                                <span>Nghỉ phép (Admin)</span>
+                            </a>
+                            <a href="{{ route('nghi-phep.ca-nhan') }}"
+                                class="submenu-item {{ request()->routeIs('nghi-phep.ca-nhan') ? 'active' : '' }}">
+                                <span>Đăng ký nghỉ phép</span>
+                            </a>
+                            <a href="{{ route('nghi-phep.config') }}"
+                                class="submenu-item {{ request()->routeIs('nghi-phep.config') ? 'active' : '' }}">
+                                <span>Cấu hình nghỉ phép</span>
+                            </a>
+                        </div>
                     </div>
-                    <div class="submenu" id="documents-submenu">
-                        <a href="{{ route('documents.incoming') }}"
-                            class="submenu-item {{ request()->routeIs('documents.incoming') ? 'active' : '' }}">
-                            <span>Văn thư đến</span>
-                        </a>
-                        <a href="{{ route('documents.outgoing') }}"
-                            class="submenu-item {{ request()->routeIs('documents.outgoing') ? 'active' : '' }}">
-                            <span>Văn thư đi</span>
-                        </a>
-                    </div>
-                </div>
-                <!-- Lương với Submenu -->
-                <div class="nav-item-parent">
-                    <div class="nav-item {{ request()->routeIs('salary.*') ? 'active' : '' }}"
-                        onclick="window.location.href='{{ route('salary.detail') }}'" style="cursor: pointer;">
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                @endcan
+
+                @can('Xem văn thư')
+                    <div class="nav-item-parent">
+                        <div class="nav-item {{ request()->routeIs('documents.*') ? 'active' : '' }}"
+                            onclick="toggleSubmenu('documents-submenu')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                </svg>
+                                <span>Văn thư</span>
+                            </div>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                            <span>Lương</span>
                         </div>
-                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        <div class="submenu" id="documents-submenu">
+                            <a href="{{ route('documents.incoming') }}"
+                                class="submenu-item {{ request()->routeIs('documents.incoming') ? 'active' : '' }}">
+                                <span>Văn thư đến</span>
+                            </a>
+                            <a href="{{ route('documents.outgoing') }}"
+                                class="submenu-item {{ request()->routeIs('documents.outgoing') ? 'active' : '' }}">
+                                <span>Văn thư đi</span>
+                            </a>
+                        </div>
+                    </div>
+                @endcan
+
+                @can('Xem lương')
+                    <div class="nav-item-parent">
+                        <div class="nav-item {{ request()->routeIs('salary.*') ? 'active' : '' }}"
+                            onclick="toggleSubmenu('salary-submenu')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Lương</span>
+                            </div>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        <div class="submenu" id="salary-submenu">
+                            <a href="{{ route('salary.index') }}"
+                                class="submenu-item {{ request()->routeIs('salary.index') ? 'active' : '' }}">
+                                <span>Danh sách lương</span>
+                            </a>
+
+                        </div>
+                    </div>
+                @endcan
+
+                @can('Quản lý hệ thống')
+                    <a href="{{ route('config.index') }}"
+                        class="nav-item {{ request()->routeIs('config.*') ? 'active' : '' }}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
+                        <span>Cấu hình</span>
+                    </a>
+
+                    <div class="nav-item-parent">
+                        <div class="nav-item {{ request()->routeIs('roles.*') || request()->routeIs('permissions.*') ? 'active' : '' }}"
+                            onclick="toggleSubmenu('roles-submenu')" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                <span>Phân quyền</span>
+                            </div>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        <div class="submenu" id="roles-submenu">
+                            <a href="{{ route('roles.index') }}"
+                                class="submenu-item {{ request()->routeIs('roles.*') ? 'active' : '' }}">
+                                <span>Quản lý nhóm quyền</span>
+                            </a>
+                            <a href="{{ route('permissions.index') }}"
+                                class="submenu-item {{ request()->routeIs('permissions.*') ? 'active' : '' }}">
+                                <span>Quản lý quyền</span>
+                            </a>
+                        </div>
                     </div>
-                    <div class="submenu" id="salary-submenu">
-                        <a href="{{ route('salary.monthly') }}"
-                            class="submenu-item {{ request()->routeIs('salary.monthly') ? 'active' : '' }}">
-                            <span>Bảng lương tháng</span>
-                        </a>
-                        <a href="{{ route('salary.config') }}"
-                            class="submenu-item {{ request()->routeIs('salary.config') ? 'active' : '' }}">
-                            <span>Cấu hình lương</span>
-                        </a>
-                        <a href="{{ route('salary.detail') }}"
-                            class="submenu-item {{ request()->routeIs('salary.detail') ? 'active' : '' }}">
-                            <span>Chi tiết lương nhân viên</span>
-                        </a>
-                    </div>
-                </div>
-                <a href="{{ route('config.index') }}"
-                    class="nav-item {{ request()->routeIs('config.*') ? 'active' : '' }}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span>Cấu hình</span>
-                </a>
+                @endcan
+
                 <a href="{{ route('settings.index') }}"
                     class="nav-item {{ request()->routeIs('settings.*') ? 'active' : '' }}">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -980,8 +1075,14 @@
                         </svg>
                     </div>
                     <div>
-                        <div style="font-weight: 500; font-size: 14px;">Admin User</div>
-                        <div style="font-size: 12px; color: #d1fae5;">Quản trị viên</div>
+                        @php
+                            $authUser = auth()->user();
+                            $authNV = $authUser?->nhanVien;
+                            $tenHienThi = $authNV?->Ten ?? $authUser?->TaiKhoan ?? 'Người dùng';
+                            $chucVu = $authNV?->ttCongViec?->chucVu?->Ten ?? 'Quản trị viên';
+                        @endphp
+                        <div style="font-weight: 500; font-size: 14px;">{{ $tenHienThi }}</div>
+                        <div style="font-size: 12px; color: #d1fae5;">{{ $chucVu }}</div>
                     </div>
                 </div>
                 <a href="#" class="nav-item"
@@ -1020,6 +1121,10 @@
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/vn.js"></script>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- Bootstrap 5 JS Bundle (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     @stack('scripts')
     <script>
         // Toggle mobile menu

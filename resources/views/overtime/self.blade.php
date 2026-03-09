@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Đăng ký tăng ca - Vietnam Rubber Group')
 
@@ -111,11 +111,6 @@
             color: #64748b;
             margin: 0;
         }
-
-        .badge-purple {
-            background-color: #e9d5ff;
-            color: #6b21a8;
-        }
     </style>
 @endpush
 
@@ -161,7 +156,10 @@
                             <th>Giờ kết thúc</th>
                             <th>Tổng giờ</th>
                             <th>Lý do</th>
+                            <th>Ghi chú lãnh đạo</th>
+                            <th>Lần gửi</th>
                             <th>Trạng thái</th>
+                            <th>Hành động</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -170,18 +168,43 @@
                                 <td class="font-medium">{{ $ot->Ngay->format('d/m/Y') }}</td>
                                 <td>{{ substr($ot->BatDau, 0, 5) }}</td>
                                 <td>{{ substr($ot->KetThuc, 0, 5) }}</td>
-                                <td class="font-medium" style="color: #0F5132;">{{ $ot->getOvertimeHours() }}h</td>
+                                <td class="font-medium" style="color: #0F5132;">{{ $ot->Tong }}h</td>
                                 <td>{{ $ot->LyDo }}</td>
+                                <td style="max-width:200px; font-size:13px; color:#6b7280;">
+                                    @if($ot->GhiChuLanhDao)
+                                        {!! $ot->GhiChuLanhDao !!}
+                                    @else
+                                        <span style="color:#d1d5db;">&#8212;</span>
+                                    @endif
+                                </td>
+                                <td style="text-align:center;">
+                                    <span style="font-weight:600;">{{ $ot->Dem ?? 1 }}</span>/3
+                                </td>
                                 <td>
                                     @if($ot->TrangThai === 'dang_cho')
-                                        <span class="badge badge-purple">Chờ duyệt</span>
+                                        <span class="badge badge-warning">Chờ duyệt</span>
                                     @elseif($ot->TrangThai === 'da_duyet')
                                         <span class="badge badge-success">Đã duyệt</span>
                                     @elseif($ot->TrangThai === 'tu_choi')
                                         <span class="badge badge-danger">Từ chối</span>
                                     @endif
                                 </td>
+                                <td>
+                                    @if($ot->TrangThai === 'tu_choi')
+                                        @if(($ot->Dem ?? 1) < 3)
+                                            <button class="btn btn-primary" style="font-size:12px; padding:6px 12px;"
+                                                onclick="openReRequestModal({{ $ot->id }}, {{ $ot->Dem ?? 1 }})">
+                                                <i class="bi bi-arrow-clockwise"></i> Yêu cầu lại
+                                            </button>
+                                        @else
+                                            <span class="badge badge-danger" style="font-size:11px;">Hết lượt</span>
+                                        @endif
+                                    @else
+                                        <span style="color:#d1d5db;">&#8212;</span>
+                                    @endif
+                                </td>
                             </tr>
+
                         @empty
                             <tr>
                                 <td colspan="6" style="text-align: center; padding: 40px; color: #6b7280;">
@@ -210,7 +233,8 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label class="form-label">Ngày tăng ca <span style="color: #ef4444;">*</span></label>
-                        <input type="text" class="form-control datepicker" id="overtimeDate" placeholder="dd/mm/yyyy" required readonly>
+                        <input type="text" class="form-control datepicker" id="overtimeDate" placeholder="dd/mm/yyyy"
+                            required readonly>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -238,6 +262,37 @@
             </form>
         </div>
     </div>
+
+    {{-- Modal Yêu cầu lại --}}
+    <div class="modal" id="reRequestModal">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <h2>Yêu cầu xét duyệt lại</h2>
+                <button class="close-modal" onclick="closeReRequestModal()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:24px;height:24px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="reRequestInfo"
+                    style="background:#fef9c3; border:1px solid #fde047; border-radius:8px; padding:12px; font-size:13px; margin-bottom:16px; color:#a16207;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Lý do yêu cầu lại <span style="color:#ef4444;">*</span></label>
+                    <textarea class="form-control" id="reRequestReason"
+                        placeholder="Nhập lý do bổ sung hoặc giải trình thêm..." style="min-height:100px;"
+                        required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeReRequestModal()">Hủy</button>
+                <button type="button" class="btn btn-primary" id="btnReRequest" onclick="submitReRequest()">
+                    <i class="bi bi-arrow-clockwise"></i> Gửi yêu cầu lại
+                </button>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -245,7 +300,7 @@
     <script>
         let datePicker;
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             datePicker = flatpickr("#overtimeDate", {
                 dateFormat: "d/m/Y",
                 altInput: false,
@@ -272,7 +327,7 @@
             // Chuyển đổi d/m/Y sang Y-m-d cho backend
             const parts = NgayRaw.split('/');
             const Ngay = `${parts[2]}-${parts[1]}-${parts[0]}`;
-            
+
             const BatDau = document.getElementById('overtimeStart').value;
             const KetThuc = document.getElementById('overtimeEnd').value;
             const LyDo = document.getElementById('overtimeReason').value;
@@ -291,7 +346,7 @@
             btnSubmit.disabled = true;
             btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang gửi...';
 
-            fetch('{{ route("tang-ca.tao-moi.post") }}', {
+            fetch('{{ route("tang-ca.tao-moi") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -335,6 +390,60 @@
                 });
         }
 
+
+        // ==================== YEU CAU LAI ====================
+        document.getElementById('reRequestModal').addEventListener('click', function (e) {
+            if (e.target === this) closeReRequestModal();
+        });
+
+        let currentReRequestId = null;
+
+        function openReRequestModal(id, soLanHienTai) {
+            currentReRequestId = id;
+            const conLai = 3 - soLanHienTai;
+            document.getElementById('reRequestInfo').innerHTML =
+                `Đơn đã bị từ chối <strong>${soLanHienTai}</strong> lần. Còn <strong>${conLai}</strong> lần yêu cầu lại.`;
+            document.getElementById('reRequestReason').value = '';
+            document.getElementById('reRequestModal').classList.add('show');
+        }
+
+        function closeReRequestModal() {
+            document.getElementById('reRequestModal').classList.remove('show');
+            currentReRequestId = null;
+        }
+
+        function submitReRequest() {
+            const lyDo = document.getElementById('reRequestReason').value.trim();
+            if (!lyDo) {
+                Swal.fire({ icon: 'warning', title: 'Thieu thong tin', text: 'Vui long nhap ly do yeu cau lai.', confirmButtonColor: '#0F5132' });
+                return;
+            }
+            const btn = document.getElementById('btnReRequest');
+            btn.disabled = true;
+            btn.textContent = 'Dang gui...';
+
+            fetch('/tang-ca/yeu-cau-lai/' + currentReRequestId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                body: JSON.stringify({ LyDo: lyDo })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({ icon: 'success', title: 'Da gui!', text: data.message, timer: 2000, showConfirmButton: false })
+                            .then(() => location.reload());
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Loi', text: data.message, confirmButtonColor: '#0F5132' });
+                        btn.disabled = false;
+                        btn.textContent = 'Gui yeu cau lai';
+                    }
+                })
+                .catch(() => {
+                    Swal.fire({ icon: 'error', title: 'Loi he thong', confirmButtonColor: '#0F5132' });
+                    btn.disabled = false;
+                    btn.textContent = 'Gui yeu cau lai';
+                });
+        }
         // Close modal on outside click
         document.getElementById('overtimeModal').addEventListener('click', function (e) {
             if (e.target === this) {

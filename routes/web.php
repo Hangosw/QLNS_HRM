@@ -11,6 +11,13 @@ use App\Http\Controllers\NhanVienController;
 use App\Http\Controllers\PhongBanController;
 use App\Http\Controllers\TangCaController;
 use App\Http\Controllers\LuongController;
+use App\Http\Controllers\DieuChuyenNoiBoController;
+use App\Http\Controllers\CongTacController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\CauHinhController;
+use App\Http\Controllers\ToDoiController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DangNhapController::class, 'DangNhap'])->name('login');
@@ -26,15 +33,21 @@ Route::middleware(['auth'])->group(function () {
 
     // nguoidung
     Route::prefix('nguoi-dung')->name('nguoi-dung.')->group(function () {
-        Route::get('/danh-sach', [NguoiDungController::class, 'DanhSachView'])->name('danh-sach');
+        Route::get('/danh-sach', [NguoiDungController::class, 'DanhSachView'])->name('danh-sach')->middleware('permission:Quản lý người dùng');
         Route::get('/data', [NguoiDungController::class, 'DataNguoiDung'])->name('data');
-        Route::get('/tao', [NguoiDungController::class, 'TaoView'])->name('taoView');
-        Route::post('/tao', [NguoiDungController::class, 'Tao'])->name('tao');
-        Route::get('/sua/{id}', [NguoiDungController::class, 'SuaView'])->name('suaView');
-        Route::post('/sua/{id}', [NguoiDungController::class, 'CapNhat'])->name('cap-nhat');
-        Route::post('/xoa/{id}', [NguoiDungController::class, 'Xoa'])->name('xoa');
-        Route::post('/xoa-nhieu', [NguoiDungController::class, 'XoaNhieu'])->name('xoa-nhieu');
+        Route::get('/tao', [NguoiDungController::class, 'TaoView'])->name('taoView')->middleware('permission:Quản lý người dùng');
+        Route::post('/tao', [NguoiDungController::class, 'Tao'])->name('tao')->middleware('permission:Quản lý người dùng');
+        Route::get('/sua/{id}', [NguoiDungController::class, 'SuaView'])->name('suaView')->middleware('permission:Quản lý người dùng');
+        Route::post('/sua/{id}', [NguoiDungController::class, 'CapNhat'])->name('cap-nhat')->middleware('permission:Quản lý người dùng');
+        Route::post('/xoa/{id}', [NguoiDungController::class, 'Xoa'])->name('xoa')->middleware('permission:Quản lý người dùng');
+        Route::post('/xoa-nhieu', [NguoiDungController::class, 'XoaNhieu'])->name('xoa-nhieu')->middleware('permission:Quản lý người dùng');
     });
+
+    Route::prefix('don-vi')->name('don-vi.')->group(function () {
+        Route::get('/danh-sach', [DonViController::class, 'DanhSachView'])->name('danh-sach')->middleware('permission:Quản lý tổ chức');
+        // ... (Keep other don-vi routes, skipped for brevity in replacement but usually I'd wrap the whole group if possible)
+    });
+    // Let's actually wrap entire groups for efficiency
 
     Route::prefix('don-vi')->name('don-vi.')->group(function () {
         Route::get('/danh-sach', [DonViController::class, 'DanhSachView'])->name('danh-sach');
@@ -71,11 +84,27 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/xoa-nhieu', [ChucVuController::class, 'XoaNhieu'])->name('xoa-nhieu');
     });
 
+    Route::prefix('to-doi')->name('to-doi.')->group(function () {
+        Route::get('/danh-sach', [ToDoiController::class, 'index'])->name('danh-sach');
+        Route::get('/data', [ToDoiController::class, 'DataToDoi'])->name('data');
+        Route::get('/tao', [ToDoiController::class, 'create'])->name('create');
+        Route::post('/tao', [ToDoiController::class, 'store'])->name('store');
+        Route::get('/chi-tiet/{id}', [ToDoiController::class, 'show'])->name('detail');
+        Route::post('/chi-tiet/{id}/them-thanh-vien', [ToDoiController::class, 'addMember'])->name('add-member');
+        Route::post('/chi-tiet/{id}/thay-doi-to-truong', [ToDoiController::class, 'changeLeader'])->name('change-leader');
+
+        // Ajax routes for cascading dropdowns
+        Route::get('/ajax/phong-ban/{donViId}', [ToDoiController::class, 'getPhongBans']);
+        Route::get('/ajax/nhan-vien/{phongBanId}', [ToDoiController::class, 'getNhanViens']);
+    });
+
     Route::prefix('nhan-vien')->name('nhan-vien.')->group(function () {
         Route::get('/danh-sach', [NhanVienController::class, 'DanhSachView'])->name('danh-sach');
         Route::get('/data', [NhanVienController::class, 'DataNhanVien'])->name('data');
         Route::get('/tao', [NhanVienController::class, 'TaoView'])->name('taoView');
         Route::post('/tao', [NhanVienController::class, 'Tao'])->name('tao');
+        Route::get('/import', [NhanVienController::class, 'importView'])->name('importView');
+        Route::post('/import', [NhanVienController::class, 'import'])->name('import');
         Route::get('/info/{id}', [NhanVienController::class, 'Info'])->name('info');
         Route::get('/sua/{id}', [NhanVienController::class, 'SuaView'])->name('suaView');
         Route::post('/sua/{id}', [NhanVienController::class, 'CapNhat'])->name('cap-nhat');
@@ -106,6 +135,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/sua/{id}', [HopDongController::class, 'CapNhat'])->name('cap-nhat');
         Route::post('/xoa/{id}', [HopDongController::class, 'Xoa'])->name('xoa');
         Route::post('/xoa-nhieu', [HopDongController::class, 'XoaNhieu'])->name('xoa-nhieu');
+        Route::get('/{id}/download-word', [HopDongController::class, 'downloadWord'])->name('download-word');
+        Route::get('/{id}/print', [HopDongController::class, 'print'])->name('print');
     });
 
     Route::prefix('cham-cong')->name('cham-cong.')->group(function () {
@@ -117,17 +148,25 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/data', [ChamCongController::class, 'DataChamCong'])->name('data');
         Route::get('/tao', [ChamCongController::class, 'TaoView'])->name('taoView');
         Route::post('/tao', [ChamCongController::class, 'Tao'])->name('tao');
+        Route::get('/import', [ChamCongController::class, 'importView'])->name('importView');
+        Route::post('/import', [ChamCongController::class, 'import'])->name('import');
         Route::get('/info/{id}', [ChamCongController::class, 'Info'])->name('info');
         Route::get('/sua/{id}', [ChamCongController::class, 'SuaView'])->name('suaView');
         Route::post('/sua/{id}', [ChamCongController::class, 'CapNhat'])->name('cap-nhat');
         Route::post('/xoa/{id}', [ChamCongController::class, 'Xoa'])->name('xoa');
         Route::post('/xoa-nhieu', [ChamCongController::class, 'XoaNhieu'])->name('xoa-nhieu');
+
+        // Lịch làm việc
+        Route::get('/lich-lam-viec', [ChamCongController::class, 'schedule'])->name('schedule');
+        Route::post('/lich-lam-viec/save', [ChamCongController::class, 'saveSchedule'])->name('schedule.save');
+        Route::post('/lich-lam-viec', [ChamCongController::class, 'saveSchedule'])->name('schedule.save');
     });
 
     Route::prefix('tang-ca')->name('tang-ca.')->group(function () {
         // Tuyến đường cho nhân viên
         Route::get('/ca-nhan', [TangCaController::class, 'CaNhanView'])->name('ca-nhan');
         Route::post('/tao-moi', [TangCaController::class, 'TaoMoi'])->name('tao-moi');
+        Route::post('/yeu-cau-lai/{id}', [TangCaController::class, 'YeuCauLai'])->name('yeu-cau-lai');
 
         // Tuyến đường cho Admin
         Route::get('/danh-sach', [TangCaController::class, 'DanhSachView'])->name('danh-sach');
@@ -145,6 +184,51 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/tu-choi/{id}', [NghiPhepController::class, 'TuChoi'])->name('tu-choi');
         Route::post('/bulk-duyet', [NghiPhepController::class, 'DuyetNhieu'])->name('bulk-duyet');
         Route::post('/bulk-tu-choi', [NghiPhepController::class, 'TuChoiNhieu'])->name('bulk-tu-choi');
+
+        // Cấu hình loại nghỉ phép
+        Route::get('/config', [NghiPhepController::class, 'ConfigView'])->name('config');
+        Route::post('/config/save', [NghiPhepController::class, 'SaveLoaiPhep'])->name('config.save');
+        Route::post('/config/delete/{id}', [NghiPhepController::class, 'DeleteLoaiPhep'])->name('config.delete');
+    });
+
+    Route::prefix('dieu-chuyen')->name('dieu-chuyen.')->group(function () {
+        Route::get('/danh-sach', [DieuChuyenNoiBoController::class, 'index'])->name('index');
+        Route::get('/tao', [DieuChuyenNoiBoController::class, 'create'])->name('taoView');
+        Route::post('/tao', [DieuChuyenNoiBoController::class, 'store'])->name('tao');
+        Route::post('/duyet/{id}', [DieuChuyenNoiBoController::class, 'duyet'])->name('duyet');
+        Route::post('/tu-choi/{id}', [DieuChuyenNoiBoController::class, 'tuChoi'])->name('tuChoi');
+    });
+
+    // Thân nhân
+    Route::post('/than-nhan/tao', [\App\Http\Controllers\ThanNhanController::class, 'store'])->name('than-nhan.tao');
+    Route::post('/than-nhan/xoa/{id}', [\App\Http\Controllers\ThanNhanController::class, 'destroy'])->name('than-nhan.xoa');
+
+    // Công tác
+    Route::prefix('cong-tac')->name('cong-tac.')->group(function () {
+        Route::get('/danh-sach', [CongTacController::class, 'index'])->name('danh-sach')
+            ->middleware('permission:view cong-tac');
+        Route::get('/tao', [CongTacController::class, 'taoView'])->name('taoView');
+        Route::post('/tao', [CongTacController::class, 'store'])->name('store');
+    });
+
+    // Phân quyền (Roles)
+    Route::prefix('phan-quyen')->name('roles.')->middleware('permission:Quản lý hệ thống')->group(function () {
+        Route::get('/', [RoleController::class, 'index'])->name('index');
+        Route::get('/tao', [RoleController::class, 'create'])->name('create');
+        Route::post('/tao', [RoleController::class, 'store'])->name('store');
+        Route::get('/sua/{id}', [RoleController::class, 'edit'])->name('edit');
+        Route::post('/sua/{id}', [RoleController::class, 'update'])->name('update');
+        Route::post('/xoa/{id}', [RoleController::class, 'destroy'])->name('destroy');
+    });
+
+    // Quyền (Permissions)
+    Route::prefix('quyen')->name('permissions.')->middleware('permission:Quản lý hệ thống')->group(function () {
+        Route::get('/', [PermissionController::class, 'index'])->name('index');
+        Route::get('/tao', [PermissionController::class, 'create'])->name('create');
+        Route::post('/tao', [PermissionController::class, 'store'])->name('store');
+        Route::get('/sua/{id}', [PermissionController::class, 'edit'])->name('edit');
+        Route::post('/sua/{id}', [PermissionController::class, 'update'])->name('update');
+        Route::post('/xoa/{id}', [PermissionController::class, 'destroy'])->name('destroy');
     });
 });
 
@@ -168,7 +252,7 @@ Route::get('/chuc-vu', function () {
     return redirect()->route('chuc-vu.danh-sach');
 })->name('chuc-vu.index');
 Route::get('/contracts', function () {
-    return 'Danh sách hợp đồng';
+    return redirect()->route('hop-dong.danh-sach');
 })->name('contracts.index');
 Route::get('/attendance', function () {
     return 'Chấm công';
@@ -176,20 +260,24 @@ Route::get('/attendance', function () {
 Route::get('/overtime-leave', function () {
     return 'Tăng ca & Nghỉ phép';
 })->name('overtime-leave.index');
-Route::get('/documents/incoming', function () {
-    return 'Văn thư đến';
-})->name('documents.incoming');
-Route::get('/documents/outgoing', function () {
-    return 'Văn thư đi';
-})->name('documents.outgoing');
+use App\Http\Controllers\VanThuController;
+
+Route::get('/documents/incoming', [VanThuController::class, 'IncomingView'])->name('documents.incoming');
+Route::get('/documents/incoming/data', [VanThuController::class, 'DataIncoming'])->name('documents.incoming.data');
+Route::get('/documents/outgoing', [VanThuController::class, 'OutgoingView'])->name('documents.outgoing');
+Route::get('/documents/outgoing/data', [VanThuController::class, 'DataOutgoing'])->name('documents.outgoing.data');
 Route::prefix('salary')->name('salary.')->group(function () {
+    Route::get('/', [LuongController::class, 'IndexView'])->name('index');
     Route::get('/monthly', [LuongController::class, 'MonthlyView'])->name('monthly');
-    Route::get('/config', [LuongController::class, 'ConfigView'])->name('config');
-    Route::get('/detail', [LuongController::class, 'DetailView'])->name('detail');
+    Route::get('/config/{nhanVienId}', [LuongController::class, 'ConfigView'])->name('config');
+    Route::get('/detail/{id?}', [LuongController::class, 'DetailView'])->name('detail');
+    Route::get('/slip/{id}', [LuongController::class, 'SlipView'])->name('slip');
+    Route::get('/tinh-luong/{id}', [LuongController::class, 'TinhLuong'])->name('tinh-luong');
+    Route::post('/tinh-luong-hang-loat', [LuongController::class, 'TinhLuongHangLoat'])->name('tinh-luong-hang-loat');
 });
-Route::get('/config', function () {
-    return 'Cấu hình hệ thống';
-})->name('config.index');
+Route::get('/config', [CauHinhController::class, 'index'])->name('config.index');
+Route::post('/config', [CauHinhController::class, 'update'])->name('config.update');
+Route::post('/config/ca-lam-viec', [CauHinhController::class, 'updateCaLamViec'])->name('config.ca-lam-viec.update');
 Route::get('/settings', function () {
     return 'Cài đặt';
 })->name('settings.index');

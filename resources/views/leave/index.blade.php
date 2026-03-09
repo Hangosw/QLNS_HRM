@@ -75,12 +75,6 @@
             color: #1f2937;
         }
 
-        /* Badge Purple for Pending */
-        .badge-purple {
-            background-color: #e9d5ff;
-            color: #6b21a8;
-        }
-
         /* Badge Cyan for Annual Leave */
         .badge-cyan {
             background-color: #cffafe;
@@ -346,10 +340,20 @@
                                 <td>
                                     @if($leave->TrangThai === 2)
                                         <div style="display: flex; gap: 8px;">
-                                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;"
-                                                onclick="approveLeave({{ $leave->id }})">Duyệt</button>
-                                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;"
-                                                onclick="rejectLeave({{ $leave->id }})">Từ chối</button>
+                                            <button class="btn-icon text-success" onclick="approveLeave({{ $leave->id }})"
+                                                title="Duyệt">
+                                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </button>
+                                            <button class="btn-icon text-danger" onclick="rejectLeave({{ $leave->id }})"
+                                                title="Từ chối">
+                                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
                                         </div>
                                     @else
                                         <span style="color: #9ca3af; font-size: 14px;">-</span>

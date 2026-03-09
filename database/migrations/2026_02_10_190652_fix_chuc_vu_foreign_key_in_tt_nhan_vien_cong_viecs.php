@@ -10,16 +10,23 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::table('tt_nhan_vien_cong_viecs', function (Blueprint $table) {
-            // Drop the old foreign key constraint using array notation
-            $table->dropForeign(['ChucVuId']);
+        try {
+            \Illuminate\Support\Facades\DB::statement('ALTER TABLE tt_nhan_vien_cong_viecs DROP FOREIGN KEY tt_nhan_vien_cong_viecs_chucvuid_foreign');
+        } catch (\Exception $e) {
+        }
 
-            // Add the correct foreign key constraint
-            $table->foreign('ChucVuId')
-                ->references('id')
-                ->on('dm_chuc_vus')
-                ->onUpdate('cascade')
-                ->onDelete('restrict');
+        Schema::table('tt_nhan_vien_cong_viecs', function (Blueprint $table) {
+            // Drop the old foreign key constraint using array notation if exists
+
+            try {
+                // Add the correct foreign key constraint
+                $table->foreign('ChucVuId')
+                    ->references('id')
+                    ->on('dm_chuc_vus')
+                    ->onUpdate('cascade')
+                    ->onDelete('restrict');
+            } catch (\Exception $e) {
+            }
         });
     }
 

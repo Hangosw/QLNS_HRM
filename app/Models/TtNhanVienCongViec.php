@@ -57,6 +57,12 @@ class TtNhanVienCongViec extends Model
         return $this->belongsTo(DmPhongBan::class, 'PhongBanId');
     }
 
+    // Nhân viên
+    public function nhanVien()
+    {
+        return $this->belongsTo(NhanVien::class, 'NhanVienId');
+    }
+
     /**
      * =====================
      * Helpers

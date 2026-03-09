@@ -205,6 +205,11 @@
 @endpush
 
 @section('content')
+    <div class="page-header">
+        <h1>Nghỉ phép cá nhân</h1>
+        <p>Theo dõi hạn mức phép và đăng ký nghỉ phép của bạn</p>
+    </div>
+
     <div class="stats-grid">
         <div class="stat-card">
             <div class="label">Tổng phép ({{ now()->year }})</div>
@@ -217,6 +222,23 @@
         <div class="stat-card">
             <div class="label">Còn lại</div>
             <div class="value" style="color: #3b82f6;">{{ $phepNam->ConLai ?? 0 }} ngày</div>
+        </div>
+    </div>
+
+    {{-- Thống kê các loại nghỉ khác --}}
+    <div class="card" style="padding: 24px;">
+        <h3 class="card-title" style="margin-bottom: 20px;">Theo dõi các loại nghỉ khác ({{ now()->year }})</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+            @foreach($otherLeaveStats as $stat)
+                <div
+                    style="padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb; background: #f9fafb; display: flex; flex-direction: column; gap: 4px;">
+                    <div style="font-size: 13px; color: var(--text-muted); font-weight: 500;">{{ $stat['ten'] }}</div>
+                    <div style="display: flex; align-items: baseline; gap: 4px;">
+                        <span style="font-size: 20px; font-weight: 700; color: #374151;">{{ $stat['da_dung'] }}</span>
+                        <span style="font-size: 12px; color: var(--text-muted);">ngày đã dùng</span>
+                    </div>
+                </div>
+            @endforeach
         </div>
     </div>
 

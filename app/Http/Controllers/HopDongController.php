@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DienBienLuong;
 use App\Models\DmChucVu;
 use App\Models\DmPhongBan;
 use App\Models\DonVi;
 use App\Models\NhanVien;
+use App\Models\NgachLuong;
 use Illuminate\Http\Request;
 
 class HopDongController extends Controller
@@ -17,7 +19,7 @@ class HopDongController extends Controller
 
     public function DataHopDong(Request $request)
     {
-        $query = \App\Models\HopDong::with(['nhanVien']);
+        $query = \App\Models\HopDong::with(['nhanVien'])->byUnit();
 
         // Server-side processing
         $totalRecords = $query->count();
@@ -98,9 +100,12 @@ class HopDongController extends Controller
 
         // Get current base salary
         $baseSalary = \App\Models\ThamSoLuong::getCurrentBaseSalary();
-        $mucLuongCoSo = $baseSalary ? $baseSalary->MucLuongCoSo : 2340000; // Default fallback
+        $mucLuongCoSo = $baseSalary ? $baseSalary->MucLuongCoSo : 2340000;
 
-        return view('contracts.create', compact('nhanvien', 'donvi', 'phongban', 'chucvu', 'mucLuongCoSo'));
+        // Ngạch lương & bậc lương
+        $ngachLuongs = NgachLuong::with('bacLuongs')->orderBy('Ma')->get();
+
+        return view('contracts.create', compact('nhanvien', 'donvi', 'phongban', 'chucvu', 'mucLuongCoSo', 'ngachLuongs'));
     }
 
     public function Tao(Request $request)
@@ -134,6 +139,9 @@ class HopDongController extends Controller
             'phu_cap_nha_o' => 'nullable|numeric|min:0',
             'phu_cap_khac' => 'nullable|numeric|min:0',
             'tong_luong' => 'required|numeric|min:0',
+            // Ngạch & bậc lương
+            'ngach_luong_id' => 'nullable|exists:ngach_luongs,id',
+            'bac_luong_id' => 'nullable|exists:bac_luongs,id',
             // File upload
             'file' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
         ]);
@@ -177,8 +185,35 @@ class HopDongController extends Controller
                 $data['File'] = 'uploads/contracts/' . $filename;
             }
 
-            // Create contract
-            $hopDong = \App\Models\HopDong::create($data);
+            // Create contract and deactivate old ones in a transaction
+            // Lấy ngạch/bậc lương từ request (trước transaction)
+            $ngachLuongId = $request->filled('ngach_luong_id') ? (int) $request->ngach_luong_id : null;
+            $bacLuongId = $request->filled('bac_luong_id') ? (int) $request->bac_luong_id : null;
+
+            $hopDong = \DB::transaction(function () use ($data, $ngachLuongId, $bacLuongId) {
+                // Nếu hợp đồng mới là đang hoạt động (TrangThai == 1)
+                if ($data['TrangThai'] == 1) {
+                    // Tìm và vô hiệu hóa các hợp đồng đang hoạt động cũ của nhân viên này
+                    \App\Models\HopDong::where('NhanVienId', $data['NhanVienId'])
+                        ->where('TrangThai', 1)
+                        ->update(['TrangThai' => 0]);
+                }
+
+                $hopDong = \App\Models\HopDong::create($data);
+
+                // Ghi diễn biến lương nếu có chọn ngạch/bậc
+                if ($ngachLuongId && $bacLuongId) {
+                    DienBienLuong::create([
+                        'NhanVienId' => $data['NhanVienId'],
+                        'HopDongId' => $hopDong->id,
+                        'NgachLuongId' => $ngachLuongId,
+                        'BacLuongId' => $bacLuongId,
+                        'NgayHuong' => $data['NgayBatDau'],
+                    ]);
+                }
+
+                return $hopDong;
+            });
 
             // Update or create employee's department and position in tt_nhan_vien_cong_viecs
             \App\Models\TtNhanVienCongViec::updateOrCreate(
@@ -189,6 +224,12 @@ class HopDongController extends Controller
                     'DonViId' => $data['DonViId'],
                 ]
             );
+
+            // Mark internal transfer as contract created if ID is provided
+            if ($request->has('phieu_dieu_chuyen_id')) {
+                \App\Models\PhieuDieuChuyenNoiBo::where('id', $request->phieu_dieu_chuyen_id)
+                    ->update(['DaTaoHopDong' => 1]);
+            }
 
 
             // Return JSON response for AJAX requests
@@ -221,5 +262,65 @@ class HopDongController extends Controller
             }
             return redirect()->back()->withInput()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
         }
+    }
+    public function downloadWord($id)
+    {
+        $hopDong = \App\Models\HopDong::with('nhanVien')->findOrFail($id);
+
+        $templatePath = storage_path('app/contracts/template_hop_dong.docx');
+        if (!file_exists($templatePath)) {
+            return redirect()->back()->with('error', 'Không tìm thấy file mẫu hợp đồng lao động.');
+        }
+
+        $templateProcessor = new \PhpOffice\PhpWord\TemplateProcessor($templatePath);
+
+        // Variables from NhanVien
+        $nv = $hopDong->nhanVien;
+        $templateProcessor->setValue('TenCongTy', 'CÔNG TY TNHH PHẦN MỀM');
+        $templateProcessor->setValue('DienThoaiCongTy', '0123456789');
+        $templateProcessor->setValue('DiaChiCongTy', '123 Đường X, Phường Y, Quận Z, TP. HCM');
+        $templateProcessor->setValue('TenGiamDoc', 'Nguyễn Văn Giám Đốc');
+
+        $templateProcessor->setValue('SoHopDong', $hopDong->SoHopDong ?? '');
+        $templateProcessor->setValue('TenNhanVien', $nv ? $nv->Ten : '');
+        $templateProcessor->setValue('NgaySinh', $nv && $nv->NgaySinh ? \Carbon\Carbon::parse($nv->NgaySinh)->format('d/m/Y') : '');
+        $templateProcessor->setValue('NoiSinh', $nv ? $nv->NoiSinh : '');
+        $templateProcessor->setValue('DiaChiThuongTru', $nv ? $nv->ThuongTru : '');
+        $templateProcessor->setValue('NgheNghiep', 'Nhân viên');
+        $templateProcessor->setValue('SoCMND', $nv ? $nv->CCCD : '');
+        $templateProcessor->setValue('NgayCap', $nv && $nv->NgayCapCCCD ? \Carbon\Carbon::parse($nv->NgayCapCCCD)->format('d/m/Y') : '');
+        $templateProcessor->setValue('NoiCap', $nv ? $nv->NoiCapCCCD : '');
+
+        // Variables from HopDong
+        $loaiHopDongStr = $hopDong->loaiHopDong ? $hopDong->loaiHopDong->TenLoai : 'Hợp đồng lao động';
+        $templateProcessor->setValue('LoaiHopDong', $loaiHopDongStr);
+        $templateProcessor->setValue('TuNgay', $hopDong->NgayBatDau ? \Carbon\Carbon::parse($hopDong->NgayBatDau)->format('d/m/Y') : '');
+        $templateProcessor->setValue('DiaDiemLamViec', 'Trụ sở công ty');
+        $templateProcessor->setValue('ChucVu', $hopDong->chucVu ? $hopDong->chucVu->TenChucVu : '');
+
+        $mucLuong = $hopDong->MucLuong ? number_format($hopDong->MucLuong, 0, ',', '.') : '0';
+        $templateProcessor->setValue('MucLuong', $mucLuong);
+        $templateProcessor->setValue('NgayKy', date('d/m/Y'));
+
+        // Save file locally temporarily
+        $fileName = 'HopDong_' . ($nv ? \Illuminate\Support\Str::slug($nv->Ten) : $hopDong->id) . '.docx';
+        $tempPath = storage_path('app/contracts/temp_' . uniqid() . '.docx');
+        $templateProcessor->saveAs($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    public function print($id)
+    {
+        $hopDong = \App\Models\HopDong::with([
+            'nhanVien',
+            'chucVu',
+            'phongBan',
+            'loaiHopDong',
+            'donVi',
+            'nguoiKy'
+        ])->findOrFail($id);
+
+        return view('contracts.template', compact('hopDong'));
     }
 }

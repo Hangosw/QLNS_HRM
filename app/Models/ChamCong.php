@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasUnitScoping;
 use Carbon\Carbon;
 
 class ChamCong extends Model
 {
+    use HasUnitScoping;
     protected $table = 'cham_congs';
 
     protected $fillable = [

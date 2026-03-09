@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\NguoiDung;
+use App\Models\DonVi;
 use Illuminate\Http\Request;
 
 class NguoiDungController extends Controller
@@ -14,7 +15,9 @@ class NguoiDungController extends Controller
 
     public function TaoView()
     {
-        return view('users.create');
+        $roles = \Spatie\Permission\Models\Role::all();
+        $donVis = DonVi::all();
+        return view('users.create', compact('roles', 'donVis'));
     }
 
     public function Tao(Request $request)
@@ -48,6 +51,14 @@ class NguoiDungController extends Controller
 
             $user->save();
 
+            if ($request->has('roles')) {
+                $user->assignRole($request->input('roles'));
+            }
+
+            if ($request->has('don_vis')) {
+                $user->donVis()->sync($request->input('don_vis'));
+            }
+
             return redirect()->route('nguoi-dung.danh-sach')
                 ->with('success', 'Thêm người dùng thành công!');
         } catch (\Exception $e) {
@@ -59,13 +70,19 @@ class NguoiDungController extends Controller
 
     public function SuaView($id)
     {
-        $user = NguoiDung::where('id', $id)->first();
-        return view('users.edit', compact('id', 'user'));
+        $user = NguoiDung::with('donVis')->where('id', $id)->firstOrFail();
+        $roles = \Spatie\Permission\Models\Role::all();
+        $donVis = DonVi::all();
+        $userRoles = $user->roles->pluck('name')->toArray();
+        $userDonVis = $user->donVis->pluck('id')->toArray();
+        return view('users.edit', compact('id', 'user', 'roles', 'userRoles', 'donVis', 'userDonVis'));
     }
 
     public function DataNguoiDung()
     {
-        $users = NguoiDung::select(['id', 'TaiKhoan', 'Email', 'SoDienThoai', 'TrangThai'])->get();
+        $users = NguoiDung::whereHas('nhanVien', function ($q) {
+            $q->byUnit();
+        })->select(['id', 'TaiKhoan', 'Email', 'SoDienThoai', 'TrangThai'])->get();
         return response()->json(['data' => $users]);
     }
 
@@ -143,6 +160,18 @@ class NguoiDungController extends Controller
             }
 
             $user->save();
+
+            if ($request->has('roles')) {
+                $user->syncRoles($request->roles);
+            } else {
+                $user->syncRoles([]);
+            }
+
+            if ($request->has('don_vis')) {
+                $user->donVis()->sync($request->input('don_vis'));
+            } else {
+                $user->donVis()->sync([]);
+            }
 
             return redirect()->route('nguoi-dung.suaView', $id)
                 ->with('success', 'Cập nhật thông tin người dùng thành công!');

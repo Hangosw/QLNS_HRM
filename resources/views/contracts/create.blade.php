@@ -175,6 +175,7 @@
 
     <form id="contractForm" action="{{ route('hop-dong.tao') }}" method="POST" enctype="multipart/form-data">
         @csrf
+        <input type="hidden" name="phieu_dieu_chuyen_id" id="phieuDieuChuyenId">
 
         <!-- Thông tin nhân viên -->
         <div class="form-section">
@@ -190,10 +191,11 @@
                         <option value="">-- Chọn nhân viên --</option>
                         @foreach ($nhanvien as $nv)
                             <option value="{{ $nv->id }}" data-ma="{{ $nv->Ma }}" data-ten="{{ $nv->Ten }}"
-                                data-phongban="{{ $nv->phongBan->Ten }}" data-chucvu="{{ $nv->chucVu->Ten }}"
-                                data-donvi="{{ $nv->donVi->Ten }}" data-phongban-id="{{ $nv->phong_ban_id }}"
-                                data-chucvu-id="{{ $nv->chuc_vu_id }}">
-                                {{ $nv->Ma }} - {{ $nv->Ten }} - {{ $nv->phongBan->Ten }}
+                                data-phongban="{{ $nv->phongBan?->Ten }}" data-chucvu="{{ $nv->chucVu?->Ten }}"
+                                data-donvi="{{ $nv->donVi?->Ten }}" data-donvi-id="{{ $nv->ttCongViec?->DonViId }}"
+                                data-phongban-id="{{ $nv->ttCongViec?->PhongBanId }}"
+                                data-chucvu-id="{{ $nv->ttCongViec?->ChucVuId }}">
+                                {{ $nv->Ma }} - {{ $nv->Ten }} - {{ $nv->phongBan?->Ten }}
                             </option>
                         @endforeach
                     </select>
@@ -366,9 +368,79 @@
                 Cấu trúc lương
             </h2>
 
+            {{-- Ngạch lương & Bậc lương --}}
+            <div class="form-row" style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px dashed #d1d5db;">
+                <div class="form-group">
+                    <label for="ngachLuongSelect">
+                        Ngạch lương
+                        <span style="font-size: 12px; color: #6b7280; font-weight: 400;">(tuỳ chọn)</span>
+                    </label>
+                    <select name="ngach_luong_id" id="ngachLuongSelect" class="form-control">
+                        <option value="">-- Chọn ngạch lương --</option>
+                        @foreach($ngachLuongs as $nl)
+                            <option value="{{ $nl->id }}" data-ma="{{ $nl->Ma }}" data-ten="{{ $nl->Ten }}"
+                                data-nhom="{{ $nl->Nhom }}">
+                                {{ $nl->Ma }} – {{ $nl->Ten }}
+                                @if($nl->Nhom) (Nhóm {{ $nl->Nhom }}) @endif
+                            </option>
+                        @endforeach
+                    </select>
+
+                    {{-- Data bậc lương ẩn dạng JSON để JS dùng --}}
+                    @php
+                        $ngachBacJson = [];
+                        foreach ($ngachLuongs as $nl) {
+                            $bacs = [];
+                            foreach ($nl->bacLuongs->sortBy('Bac') as $b) {
+                                $bacs[] = [
+                                    'id' => $b->id,
+                                    'bac' => $b->Bac,
+                                    'heso' => (float) $b->HeSo,
+                                ];
+                            }
+                            $ngachBacJson[] = [
+                                'id' => $nl->id,
+                                'ma' => $nl->Ma,
+                                'ten' => $nl->Ten,
+                                'nhom' => $nl->Nhom,
+                                'bacs' => $bacs,
+                            ];
+                        }
+                    @endphp
+                    <script id="ngachBacData" type="application/json">
+                            {!! json_encode($ngachBacJson) !!}
+                        </script>
+                </div>
+
+                <div class="form-group">
+                    <label for="bacLuongSelect">
+                        Bậc lương
+                        <span style="font-size: 12px; color: #6b7280; font-weight: 400;">(chọn ngạch trước)</span>
+                    </label>
+                    <select name="bac_luong_id" id="bacLuongSelect" class="form-control" disabled>
+                        <option value="">-- Chọn bậc lương --</option>
+                    </select>
+                    <div class="help-text" id="bacLuongHint">
+                        Khi chọn bậc lương, lương cơ bản sẽ được tính tự động:
+                        <strong>Hệ số × Mức lương cơ sở ({{ number_format($mucLuongCoSo, 0, ',', '.') }} đ)</strong>
+                    </div>
+
+                    {{-- Badge hiển thị hệ số sau khi chọn --}}
+                    <div id="heSoBadge" style="display:none; margin-top: 8px; padding: 8px 12px;
+                                     background: #f0fdf4; border: 1px solid #0F5132; border-radius: 6px;
+                                     font-size: 13px; color: #0F5132;">
+                        <strong id="heSoValue">–</strong>
+                        <span style="color: #6b7280;"> × {{ number_format($mucLuongCoSo, 0, ',', '.') }} đ
+                            = </span>
+                        <strong id="luongTinhTu">–</strong>
+                    </div>
+                </div>
+            </div>
+
             <!-- Lương cơ bản -->
             <div class="form-group">
                 <label>Lương cơ bản (VNĐ) <span class="required">*</span></label>
+
                 <input type="text" name="luong_co_ban" id="luongCoBan" class="form-control salary-input formatted-number"
                     placeholder="15.000.000" min="5310000" required>
                 <div class="help-text">Lương cơ bản (tính BHXH) - Tối thiểu 5.310.000 VNĐ (Vùng I năm 2026)</div>
@@ -607,7 +679,7 @@
                     card.classList.add('show');
 
                     // Auto-fill position info
-                    document.getElementById('donViSelect').value = option.dataset.donvi || '';
+                    document.getElementById('donViSelect').value = option.dataset.donviId || '';
                     document.getElementById('phongBanSelect').value = option.dataset.phongbanId || '';
                     document.getElementById('chucVuSelect').value = option.dataset.chucvuId || '';
 
@@ -1097,6 +1169,116 @@
                         });
                 });
             }
+            // Auto-select employee if nhan_vien_id is in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const nhanVienId = urlParams.get('nhan_vien_id');
+            const phieuId = urlParams.get('phieu_dieu_chuyen_id');
+
+            if (phieuId) {
+                document.getElementById('phieuDieuChuyenId').value = phieuId;
+            }
+
+            if (nhanVienId) {
+                const nhanVienSelect = document.getElementById('nhanVienSelect');
+                if (nhanVienSelect) {
+                    nhanVienSelect.value = nhanVienId;
+                    // Disable to prevent change
+                    nhanVienSelect.classList.add('locked-field');
+                    nhanVienSelect.style.backgroundColor = '#f3f4f6';
+                    nhanVienSelect.style.pointerEvents = 'none';
+
+                    // Trigger the change event to update other fields
+                    nhanVienSelect.dispatchEvent(new Event('change'));
+
+                    // Lock position fields
+                    const posFields = ['donViSelect', 'phongBanSelect', 'chucVuSelect'];
+                    posFields.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            el.classList.add('locked-field');
+                            el.style.backgroundColor = '#f3f4f6';
+                            el.style.pointerEvents = 'none';
+                            el.setAttribute('tabindex', '-1');
+                        }
+                    });
+
+                    // Add a small notice
+                    const positionSection = document.querySelector('.form-section:nth-of-type(2)');
+                    if (positionSection) {
+                        const notice = document.createElement('div');
+                        notice.style.fontSize = '12px';
+                        notice.style.color = '#0F5132';
+                        notice.style.marginTop = '8px';
+                        notice.style.fontStyle = 'italic';
+                        notice.innerHTML = '<i class="bi bi-info-circle"></i> Vị trí công việc đã được cố định theo phiếu điều chuyển nội bộ.';
+                        positionSection.appendChild(notice);
+                    }
+                }
+            }
+            // =============================================
+            // Ngạch lương & Bậc lương – cascade logic
+            // =============================================
+            (function () {
+                const ngachData = JSON.parse(document.getElementById('ngachBacData').textContent);
+                const ngachSelect = document.getElementById('ngachLuongSelect');
+                const bacSelect = document.getElementById('bacLuongSelect');
+                const heSoBadge = document.getElementById('heSoBadge');
+                const heSoValue = document.getElementById('heSoValue');
+                const luongTinhTu = document.getElementById('luongTinhTu');
+                const luongCoBanInput = document.getElementById('luongCoBan');
+
+                // Khi chọn Ngạch lương → load danh sách Bậc lương
+                ngachSelect.addEventListener('change', function () {
+                    const ngachId = parseInt(this.value);
+                    bacSelect.innerHTML = '<option value="">-- Chọn bậc lương --</option>';
+                    heSoBadge.style.display = 'none';
+
+                    if (!ngachId) {
+                        bacSelect.disabled = true;
+                        return;
+                    }
+
+                    const ngach = ngachData.find(n => n.id === ngachId);
+                    if (!ngach || !ngach.bacs.length) {
+                        bacSelect.disabled = true;
+                        return;
+                    }
+
+                    ngach.bacs.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.id;
+                        opt.dataset.heso = b.heso;
+                        opt.textContent = `Bậc ${b.bac}  –  Hệ số ${b.heso.toFixed(2)}`;
+                        bacSelect.appendChild(opt);
+                    });
+                    bacSelect.disabled = false;
+                });
+
+                // Khi chọn Bậc lương → tính và điền Lương cơ bản
+                bacSelect.addEventListener('change', function () {
+                    const opt = this.options[this.selectedIndex];
+                    const heso = parseFloat(opt.dataset.heso);
+
+                    if (!heso) {
+                        heSoBadge.style.display = 'none';
+                        return;
+                    }
+
+                    const luong = Math.round(heso * mucLuongCoSo);
+                    const formatted = formatNumber(luong);
+
+                    // Điền vào ô lương cơ bản
+                    luongCoBanInput.value = formatted;
+
+                    // Cập nhật badge
+                    heSoValue.textContent = heso.toFixed(2);
+                    luongTinhTu.textContent = formatNumber(luong) + ' đ';
+                    heSoBadge.style.display = 'block';
+
+                    // Kích hoạt tính tổng lương
+                    calculateSalary();
+                });
+            })();
         </script>
     @endpush
 @endsection

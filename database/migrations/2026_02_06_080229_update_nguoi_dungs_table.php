@@ -12,14 +12,18 @@ return new class extends Migration {
     {
         Schema::table('nguoi_dungs', function (Blueprint $table) {
             // Rename existing columns if they exist
-            if (Schema::hasColumn('nguoi_dungs', 'name')) {
-                $table->renameColumn('name', 'TaiKhoan');
-            }
-            if (Schema::hasColumn('nguoi_dungs', 'email')) {
-                $table->renameColumn('email', 'Email');
-            }
-            if (Schema::hasColumn('nguoi_dungs', 'password')) {
-                $table->renameColumn('password', 'MatKhau');
+            try {
+                if (Schema::hasColumn('nguoi_dungs', 'name') && !Schema::hasColumn('nguoi_dungs', 'TaiKhoan')) {
+                    $table->renameColumn('name', 'TaiKhoan');
+                }
+                if (Schema::hasColumn('nguoi_dungs', 'email') && !Schema::hasColumn('nguoi_dungs', 'Email')) {
+                    $table->renameColumn('email', 'Email');
+                }
+                if (Schema::hasColumn('nguoi_dungs', 'password') && !Schema::hasColumn('nguoi_dungs', 'MatKhau')) {
+                    $table->renameColumn('password', 'MatKhau');
+                }
+            } catch (\Exception $e) {
+                // Ignore rename column error in newer Laravel versions if column already exists
             }
 
             // Add missing columns

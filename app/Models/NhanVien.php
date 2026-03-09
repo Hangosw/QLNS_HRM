@@ -4,15 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use App\Traits\HasUnitScoping;
 
 class NhanVien extends Model
 {
+    use HasUnitScoping;
     protected $table = 'nhan_viens';
 
     protected $fillable = [
         'Ma',  // Mã nhân viên: NV_YY_XXXXX
         'Ten',  //
         'NguoiDungId',  //
+        'Email',
+        'SoDienThoai',
 
         'SoCCCD', //
         'NoiCap',
@@ -229,5 +233,13 @@ class NhanVien extends Model
     public function scopeCongNhan($query)
     {
         return $query->where('Nhom', 'cong_nhan');
+    }
+
+    /**
+     * Relationship: Nhân viên có nhiều thân nhân
+     */
+    public function thanNhans()
+    {
+        return $this->hasMany(ThanNhan::class, 'NhanVienId');
     }
 }

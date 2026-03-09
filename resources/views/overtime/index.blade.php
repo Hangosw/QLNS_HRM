@@ -1,83 +1,9 @@
 @extends('layouts.app')
 
-@section('title', 'Quản lý tăng ca - Vietnam Rubber Group')@push('styles')
+@section('title', 'Quản lý tăng ca - Vietnam Rubber Group')
+
+@push('styles')
     <style>
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.show {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-header {
-            padding: 24px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h2 {
-            font-size: 20px;
-            font-weight: 600;
-            color: #1f2937;
-        }
-
-        .modal-body {
-            padding: 24px;
-        }
-
-        .modal-footer {
-            padding: 24px;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .close-modal {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #6b7280;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.2s;
-        }
-
-        .close-modal:hover {
-            color: #1f2937;
-        }
-
-        /* Badge Purple for Pending */
-        .badge-purple {
-            background-color: #e9d5ff;
-            color: #6b21a8;
-        }
-
         /* Tab Styles */
         .tabs {
             display: flex;
@@ -165,27 +91,17 @@
 
     <!-- Filter and Action Bar -->
     <div class="card">
-        <form action="{{ route('tang-ca.danh-sach') }}" method="GET" class="action-bar" id="filterForm">
-            <div style="display: flex; gap: 12px;">
-                <select name="phong_ban_id" class="form-control" style="width: auto; margin-bottom: 0;"
-                    onchange="this.form.submit()">
-                    <option value="">Tất cả phòng ban</option>
-                    @foreach($phongBans as $pb)
-                        <option value="{{ $pb->id }}" {{ request('phong_ban_id') == $pb->id ? 'selected' : '' }}>
-                            {{ $pb->Ten }}
-                        </option>
-                    @endforeach
-                </select>
-                <select name="trang_thai" class="form-control" style="width: auto; margin-bottom: 0;"
-                    onchange="this.form.submit()">
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="dang_cho" {{ request('trang_thai') == 'dang_cho' ? 'selected' : '' }}>Chờ duyệt</option>
-                    <option value="da_duyet" {{ request('trang_thai') == 'da_duyet' ? 'selected' : '' }}>Đã duyệt</option>
-                    <option value="tu_choi" {{ request('trang_thai') == 'tu_choi' ? 'selected' : '' }}>Từ chối</option>
-                </select>
+        <div class="action-bar">
+            <div class="search-bar">
+                <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    style="width: 20px; height: 20px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="text" class="form-control" placeholder="Tìm kiếm nhân viên, phòng ban..." id="customSearch">
             </div>
             <div class="action-buttons">
-                <button type="button" class="btn btn-secondary">
+                <button class="btn btn-secondary">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -199,10 +115,10 @@
                     Đăng ký tăng ca
                 </button>
             </div>
-        </form>
+        </div>
     </div>
 
-    <!-- Tabs -->
+    <!-- Tabs Filtering (UI only for grouping, DataTables will handle display) -->
     <div class="card">
         <div class="tabs">
             <button class="tab {{ !request('trang_thai') ? 'active' : '' }}" onclick="filterStatus('')">Tất cả
@@ -217,503 +133,345 @@
                 onclick="filterStatus('tu_choi')">Từ chối ({{ $tangCas->where('TrangThai', 'tu_choi')->count() }})</button>
         </div>
 
-        <!-- All Tab -->
-        <div class="tab-content active" id="all-tab">
-            <div class="table-container">
-                <table class="table">
-                    <thead>
+        <div class="table-container">
+            <table class="table" id="overtimeTable">
+                <thead>
+                    <tr>
+                        <th style="width: 50px; text-align: center;">
+                            <input type="checkbox" id="selectAll" style="cursor: pointer;">
+                        </th>
+                        <th>Nhân viên</th>
+                        <th>Phòng ban</th>
+                        <th>Ngày tăng ca</th>
+                        <th>Thời gian</th>
+                        <th>Lý do & Ghi chú</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($tangCas as $index => $ot)
                         <tr>
-                            <th style="width: 50px; text-align: center;">
-                                STT<br>
-                                <input type="checkbox" id="selectAll" style="cursor: pointer;">
-                            </th>
-                            <th>Nhân viên</th>
-                            <th>Phòng ban</th>
-                            <th>Ngày tăng ca</th>
-                            <th>Thời gian</th>
-                            <th>Lý do</th>
-                            <th>Trạng thái</th>
-                            <th>Hành động</th>
+                            <td class="text-center">
+                                <input type="checkbox" class="row-checkbox" value="{{ $ot->id }}" style="cursor: pointer;">
+                            </td>
+                            <td>
+                                <div class="font-medium text-gray-900">{{ $ot->nhanVien?->Ten }}</div>
+                                <div class="text-sm text-gray-500">{{ $ot->nhanVien?->Ma }}</div>
+                            </td>
+                            <td>{{ $ot->nhanVien?->ttCongViec?->phongBan?->Ten ?? 'N/A' }}</td>
+                            <td>{{ $ot->Ngay?->format('d/m/Y') }}</td>
+                            <td>
+                                <div class="font-medium">
+                                    {{ substr($ot->BatDau, 0, 5) }} - {{ substr($ot->KetThuc, 0, 5) }}
+                                </div>
+                                <div class="text-xs text-green-700">Tổng: {{ $ot->Tong }}h</div>
+                            </td>
+                            <td>
+                                <div class="text-sm text-gray-600" title="{{ $ot->LyDo }}">
+                                    {{ Str::limit($ot->LyDo, 50) }}
+                                </div>
+                                @if ($ot->GhiChuLanhDao)
+                                    <div class="text-xs text-blue-600 mt-1 italic">
+                                        {!! $ot->GhiChuLanhDao !!}
+                                    </div>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($ot->TrangThai === 'dang_cho')
+                                    <span class="badge badge-warning">Chờ duyệt</span>
+                                @elseif($ot->TrangThai === 'da_duyet')
+                                    <span class="badge badge-success">Đã duyệt</span>
+                                @else
+                                    <span class="badge badge-danger">Từ chối</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if ($ot->TrangThai === 'dang_cho')
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn-icon text-success" onclick="approveOvertime({{ $ot->id }})"
+                                            title="Duyệt">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                                style="width: 20px; height: 20px;">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </button>
+                                        <button class="btn-icon text-danger" onclick="rejectOvertime({{ $ot->id }})"
+                                            title="Từ chối">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                                style="width: 20px; height: 20px;">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($tangCas as $index => $ot)
-                            <tr>
-                                <td style="text-align: center; vertical-align: middle;">
-                                    <strong>{{ $index + 1 }}</strong><br>
-                                    <input type="checkbox" class="row-checkbox" value="{{ $ot->id }}" style="cursor: pointer;">
-                                </td>
-                                <td>
-                                    <div style="display: flex; align-items: center; gap: 12px;">
-                                        <div class="avatar"
-                                            style="width: 40px; height: 40px; background: #0F5132; color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold;">
-                                            {{ substr($ot->nhanVien->Ten, 0, 1) }}
-                                        </div>
-                                        <div class="font-medium">{{ $ot->nhanVien->Ten }}</div>
-                                    </div>
-                                </td>
-                                <td>{{ $ot->nhanVien->ttCongViec->phongBan->Ten ?? 'N/A' }}</td>
-                                <td class="font-medium">{{ $ot->Ngay->format('d/m/Y') }}</td>
-                                <td>
-                                    <div class="font-medium">{{ substr($ot->BatDau, 0, 5) }} - {{ substr($ot->KetThuc, 0, 5) }}
-                                    </div>
-                                    <div style="font-size: 12px; color: #0F5132; margin-top: 2px;">Tổng: {{ $ot->Tong }}h</div>
-                                </td>
-                                <td>{{ $ot->LyDo }}</td>
-                                <td>
-                                    @if($ot->TrangThai === 'dang_cho')
-                                        <span class="badge badge-purple">Chờ duyệt</span>
-                                    @elseif($ot->TrangThai === 'da_duyet')
-                                        <span class="badge badge-success">Đã duyệt</span>
-                                    @elseif($ot->TrangThai === 'tu_choi')
-                                        <span class="badge badge-danger">Từ chối</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    @if($ot->TrangThai === 'dang_cho')
-                                        <div style="display: flex; gap: 8px;">
-                                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;"
-                                                onclick="approveOvertime({{ $ot->id }})">Duyệt</button>
-                                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;"
-                                                onclick="rejectOvertime({{ $ot->id }})">Từ chối</button>
-                                        </div>
-                                    @else
-                                        <span style="color: #9ca3af; font-size: 14px;">-</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="8" style="text-align: center; padding: 40px; color: #6b7280;">
-                                    Không có dữ liệu tăng ca nào phù hợp.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Other tabs would have similar structure -->
-        <div class="tab-content" id="pending-tab">
-            <p style="text-align: center; padding: 40px; color: #6b7280;">Hiển thị các đơn chờ duyệt...</p>
-        </div>
-
-        <div class="tab-content" id="approved-tab">
-            <p style="text-align: center; padding: 40px; color: #6b7280;">Hiển thị các đơn đã duyệt...</p>
-        </div>
-
-        <div class="tab-content" id="rejected-tab">
-            <p style="text-align: center; padding: 40px; color: #6b7280;">Hiển thị các đơn bị từ chối...</p>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- Overtime Modal -->
-    <div class="modal" id="overtimeModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Đăng ký tăng ca</h2>
-                <button class="close-modal" onclick="closeOvertimeModal()">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 24px; height: 24px;">
+    <!-- Registration Modal -->
+    <div id="overtimeModal" class="modal"
+        style="display:none; position:fixed; z-index:100; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+        <div class="modal-content card" style="max-width:500px; margin: 10vh auto; padding: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0;">Đăng ký tăng ca</h2>
+                <button type="button" class="btn-icon" onclick="closeOvertimeModal()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:24px; height:24px;">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
             <form id="overtimeForm" onsubmit="submitOvertime(event)">
-                <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Chọn nhân viên <span class="text-danger">*</span></label>
+                    <select name="NhanVienId" class="form-control" id="overtimeEmployee" required>
+                        <option value="">-- Chọn nhân viên --</option>
+                        @foreach($phongBans as $pb)
+                            <optgroup label="{{ $pb->Ten }}">
+                                @foreach($pb->ttNhanVienCongViec as $tt)
+                                    <option value="{{ $tt->nhanVien->id }}">{{ $tt->nhanVien->Ten }} ({{ $tt->nhanVien->Ma }})
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Ngày tăng ca <span class="text-danger">*</span></label>
+                    <input type="date" name="Ngay" class="form-control" id="overtimeDate" required>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
                     <div class="form-group">
-                        <label class="form-label">Nhân viên <span style="color: #ef4444;">*</span></label>
-                        <select class="form-control" id="overtimeEmployee" required>
-                            <option value="">Chọn nhân viên</option>
-                            <option value="1">Nguyễn Văn An - Phòng Kỹ thuật</option>
-                            <option value="2">Trần Thị Bình - Phòng Nhân sự</option>
-                            <option value="3">Lê Hoàng Cường - Phòng Kinh doanh</option>
-                        </select>
+                        <label class="form-label">Bắt đầu <span class="text-danger">*</span></label>
+                        <input type="time" name="BatDau" class="form-control" id="overtimeStart" required>
                     </div>
-
                     <div class="form-group">
-                        <label class="form-label">Ngày tăng ca <span style="color: #ef4444;">*</span></label>
-                        <input type="date" class="form-control" id="overtimeDate" required>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div class="form-group">
-                            <label class="form-label">Giờ bắt đầu <span style="color: #ef4444;">*</span></label>
-                            <input type="time" class="form-control" id="overtimeStart" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Giờ kết thúc <span style="color: #ef4444;">*</span></label>
-                            <input type="time" class="form-control" id="overtimeEnd" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Lý do tăng ca <span style="color: #ef4444;">*</span></label>
-                        <textarea class="form-control" id="overtimeReason" required placeholder="Nhập lý do cần tăng ca..."
-                            style="min-height: 100px;"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">File đính kèm (nếu có)</label>
-                        <input type="file" class="form-control" id="overtimeFile" accept=".pdf,.doc,.docx">
-                        <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
-                            Hỗ trợ: PDF, DOC, DOCX (Tối đa 5MB)
-                        </small>
+                        <label class="form-label">Kết thúc <span class="text-danger">*</span></label>
+                        <input type="time" name="KetThuc" class="form-control" id="overtimeEnd" required>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="form-group">
+                    <label class="form-label">Lý do <span class="text-danger">*</span></label>
+                    <textarea name="LyDo" class="form-control" id="overtimeReason" required
+                        style="min-height:80px;"></textarea>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:24px;">
                     <button type="button" class="btn btn-secondary" onclick="closeOvertimeModal()">Hủy</button>
-                    <button type="submit" class="btn btn-primary">Gửi đơn</button>
+                    <button type="submit" class="btn btn-primary">Lưu phiếu</button>
                 </div>
             </form>
         </div>
     </div>
-
 @endsection
 
 @push('scripts')
     <script>
-        // Select All checkboxes
-        document.addEventListener('DOMContentLoaded', function () {
-            const selectAll = document.getElementById('selectAll');
-            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-            const bulkActionBar = document.getElementById('bulkActionBar');
-            const selectedCountSpan = document.getElementById('selectedCount');
+        $(document).ready(function () {
+            const table = $('#overtimeTable').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json'
+                },
+                order: [
+                    [3, 'desc']
+                ], // Sắp xếp theo ngày tăng ca
+                pageLength: 10,
+                dom: 'rtip', // Hide default search box
+                columnDefs: [{
+                    orderable: false,
+                    targets: [0, 7]
+                }]
+            });
 
-            function updateBulkActionBar() {
-                const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
-                const count = selectedCheckboxes.length;
+            // Custom Search
+            $('#customSearch').on('keyup', function () {
+                table.search(this.value).draw();
+            });
 
+            // Select All logic
+            $('#selectAll').on('change', function () {
+                $('.row-checkbox').prop('checked', this.checked);
+                updateBulkBar();
+            });
+
+            $('.row-checkbox').on('change', function () {
+                updateBulkBar();
+                const allChecked = $('.row-checkbox').length === $('.row-checkbox:checked').length;
+                $('#selectAll').prop('checked', allChecked);
+            });
+
+            function updateBulkBar() {
+                const count = $('.row-checkbox:checked').length;
                 if (count > 0) {
-                    bulkActionBar.style.display = 'block';
-                    selectedCountSpan.textContent = count;
+                    $('#selectedCount').text(count);
+                    $('#bulkActionBar').fadeIn();
                 } else {
-                    bulkActionBar.style.display = 'none';
+                    $('#bulkActionBar').fadeOut();
                 }
             }
-
-            if (selectAll) {
-                selectAll.addEventListener('change', function () {
-                    rowCheckboxes.forEach(cb => {
-                        cb.checked = selectAll.checked;
-                    });
-                    updateBulkActionBar();
-                });
-            }
-
-            rowCheckboxes.forEach(cb => {
-                cb.addEventListener('change', function () {
-                    updateBulkActionBar();
-
-                    // Update selectAll state
-                    const allChecked = Array.from(rowCheckboxes).every(c => c.checked);
-                    const someChecked = Array.from(rowCheckboxes).some(c => c.checked);
-                    selectAll.checked = allChecked;
-                    selectAll.indeterminate = someChecked && !allChecked;
-                });
-            });
         });
 
-        // Bulk Approve
-        function bulkApprove() {
-            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
-            if (selectedIds.length === 0) return;
-
-            Swal.fire({
-                title: 'Xác nhận',
-                text: `Bạn có chắc chắn muốn phê duyệt ${selectedIds.length} đơn tăng ca đã chọn?`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#0F5132',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Đồng ý',
-                cancelButtonText: 'Hủy'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch('{{ route("tang-ca.bulk-duyet") }}', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({ ids: selectedIds })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Thành công',
-                                    text: data.message,
-                                    timer: 2000,
-                                    showConfirmButton: false
-                                }).then(() => {
-                                    location.reload();
-                                });
-                            } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Lỗi',
-                                    text: data.message,
-                                    confirmButtonColor: '#0F5132'
-                                });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi',
-                                text: 'Có lỗi xảy ra khi kết nối với máy chủ.',
-                                confirmButtonColor: '#0F5132'
-                            });
-                        });
-                }
-            });
-        }
-
-        // Bulk Reject
-        function bulkReject() {
-            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
-            if (selectedIds.length === 0) return;
-
-            Swal.fire({
-                title: 'Xác nhận',
-                text: `Bạn có chắc chắn muốn từ chối ${selectedIds.length} đơn tăng ca đã chọn?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Đồng ý từ chối',
-                cancelButtonText: 'Hủy'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch('{{ route("tang-ca.bulk-tu-choi") }}', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({ ids: selectedIds })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Thành công',
-                                    text: data.message,
-                                    timer: 2000,
-                                    showConfirmButton: false
-                                }).then(() => {
-                                    location.reload();
-                                });
-                            } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Lỗi',
-                                    text: data.message,
-                                    confirmButtonColor: '#0F5132'
-                                });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi',
-                                text: 'Có lỗi xảy ra khi kết nối với máy chủ.',
-                                confirmButtonColor: '#0F5132'
-                            });
-                        });
-                }
-            });
-        }
-
-        // Filter by status
         function filterStatus(status) {
             const url = new URL(window.location.href);
-            if (status) {
-                url.searchParams.set('trang_thai', status);
-            } else {
-                url.searchParams.delete('trang_thai');
-            }
+            if (status) url.searchParams.set('trang_thai', status);
+            else url.searchParams.delete('trang_thai');
             window.location.href = url.toString();
         }
 
-        // Open overtime modal
         function openOvertimeModal() {
-            document.getElementById('overtimeModal').classList.add('show');
-            // Set default date to today
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('overtimeDate').value = today;
+            $('#overtimeModal').show();
+            $('#overtimeDate').val(new Date().toISOString().split('T')[0]);
         }
 
-        // Close overtime modal
         function closeOvertimeModal() {
-            document.getElementById('overtimeModal').classList.remove('show');
-            document.getElementById('overtimeForm').reset();
+            $('#overtimeModal').hide();
+            $('#overtimeForm')[0].reset();
         }
 
-        // Submit overtime
-        function submitOvertime(event) {
-            event.preventDefault();
+        function submitOvertime(e) {
+            e.preventDefault();
+            const formData = {
+                _token: '{{ csrf_token() }}',
+                NhanVienId: $('#overtimeEmployee').val(),
+                Ngay: $('#overtimeDate').val(),
+                BatDau: $('#overtimeStart').val(),
+                KetThuc: $('#overtimeEnd').val(),
+                LyDo: $('#overtimeReason').val()
+            };
 
-            const employee = document.getElementById('overtimeEmployee').value;
-            const date = document.getElementById('overtimeDate').value;
-            const start = document.getElementById('overtimeStart').value;
-            const end = document.getElementById('overtimeEnd').value;
-            const reason = document.getElementById('overtimeReason').value;
-
-            // Validate time
-            if (start >= end) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Lỗi',
-                    text: 'Giờ kết thúc phải sau giờ bắt đầu!',
-                    confirmButtonColor: '#0F5132'
-                });
-                return;
-            }
-
-            // Logic for admin to register for employee (to be implemented if needed)
-            console.log('Admin registering for employee:', { employee, date, start, end, reason });
-            Swal.fire({
-                icon: 'info',
-                title: 'Thông báo',
-                text: 'Chức năng admin đăng ký hộ hiện đang được phát triển.',
-                confirmButtonColor: '#0F5132'
+            $.ajax({
+                url: '{{ route("tang-ca.tao-moi") }}',
+                type: 'POST',
+                data: formData,
+                success: function (res) {
+                    if (res.success) {
+                        Swal.fire('Thành công!', res.message, 'success').then(() => location.reload());
+                    } else {
+                        Swal.fire('Lỗi!', res.message, 'error');
+                    }
+                },
+                error: function (xhr) {
+                    Swal.fire('Lỗi!', xhr.responseJSON ? xhr.responseJSON.message : 'Có lỗi xảy ra.', 'error');
+                }
             });
         }
 
-        // Approve overtime
         function approveOvertime(id) {
             Swal.fire({
-                title: 'Xác nhận',
-                text: 'Bạn có chắc chắn muốn phê duyệt đơn tăng ca này?',
-                icon: 'question',
+                title: 'Phê duyệt tăng ca',
+                input: 'textarea',
+                inputLabel: 'Ghi chú lãnh đạo (nếu có)',
+                inputPlaceholder: 'Nhập ghi chú...',
                 showCancelButton: true,
                 confirmButtonColor: '#0F5132',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Duyệt',
+                confirmButtonText: 'Phê duyệt',
                 cancelButtonText: 'Hủy'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    fetch(`/tang-ca/duyet/${id}`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json'
-                        }
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Thành công',
-                                    text: data.message,
-                                    timer: 2000,
-                                    showConfirmButton: false
-                                }).then(() => {
-                                    location.reload();
-                                });
-                            } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Lỗi',
-                                    text: data.message,
-                                    confirmButtonColor: '#0F5132'
-                                });
+                    $.ajax({
+                        url: `/tang-ca/duyet/${id}`,
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            GhiChuLanhDao: result.value
+                        },
+                        success: function (res) {
+                            if (res.success) {
+                                Swal.fire('Thành công!', res.message, 'success').then(() => location.reload());
                             }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi',
-                                text: 'Có lỗi xảy ra khi kết nối với máy chủ.',
-                                confirmButtonColor: '#0F5132'
-                            });
-                        });
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Lỗi!', xhr.responseJSON ? xhr.responseJSON.message : 'Có lỗi xảy ra.', 'error');
+                        }
+                    });
                 }
             });
         }
 
-        // Reject overtime
         function rejectOvertime(id) {
             Swal.fire({
-                title: 'Từ chối đơn tăng ca',
+                title: 'Từ chối tăng ca',
                 input: 'textarea',
                 inputLabel: 'Lý do từ chối',
-                inputPlaceholder: 'Nhập lý do từ chối...',
-                inputAttributes: {
-                    'aria-label': 'Nhập lý do từ chối'
-                },
+                inputPlaceholder: 'Nhập lý do...',
+                inputValidator: (value) => { if (!value) return 'Vui lòng nhập lý do!' },
                 showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#6b7280',
+                confirmButtonColor: '#dc2626',
                 confirmButtonText: 'Từ chối',
-                cancelButtonText: 'Hủy',
-                inputValidator: (value) => {
-                    if (!value) {
-                        return 'Vui lòng nhập lý do từ chối!'
-                    }
-                }
+                cancelButtonText: 'Hủy'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    const reason = result.value;
-                    fetch(`/tang-ca/tu-choi/${id}`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
+                    $.ajax({
+                        url: `/tang-ca/tu-choi/${id}`,
+                        type: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            GhiChuLanhDao: result.value
                         },
-                        body: JSON.stringify({ LyDo: reason })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Thành công',
-                                    text: data.message,
-                                    timer: 2000,
-                                    showConfirmButton: false
-                                }).then(() => {
-                                    location.reload();
-                                });
-                            } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Lỗi',
-                                    text: data.message,
-                                    confirmButtonColor: '#0F5132'
-                                });
+                        success: function (res) {
+                            if (res.success) {
+                                Swal.fire('Đã từ chối!', res.message, 'success').then(() => location.reload());
                             }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Lỗi',
-                                text: 'Có lỗi xảy ra khi kết nối với máy chủ.',
-                                confirmButtonColor: '#0F5132'
-                            });
-                        });
+                        },
+                        error: function (xhr) {
+                            Swal.fire('Lỗi!', xhr.responseJSON ? xhr.responseJSON.message : 'Có lỗi xảy ra.', 'error');
+                        }
+                    });
                 }
             });
         }
 
-        // Close modal on outside click
-        document.getElementById('overtimeModal').addEventListener('click', function (e) {
-            if (e.target === this) {
-                closeOvertimeModal();
-            }
-        });
+        function bulkApprove() {
+            const ids = $('.row-checkbox:checked').map(function () { return this.value; }).get();
+            Swal.fire({
+                title: 'Duyệt hàng loạt',
+                text: `Phê duyệt ${ids.length} phiếu đã chọn?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0F5132',
+                confirmButtonText: 'Duyệt ngay'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '{{ route("tang-ca.bulk-duyet") }}',
+                        type: 'POST',
+                        data: { _token: '{{ csrf_token() }}', ids: ids },
+                        success: function (res) {
+                            if (res.success) Swal.fire('Thành công!', res.message, 'success').then(() => location.reload());
+                        }
+                    });
+                }
+            });
+        }
+
+        function bulkReject() {
+            const ids = $('.row-checkbox:checked').map(function () { return this.value; }).get();
+            Swal.fire({
+                title: 'Từ chối hàng loạt',
+                text: `Từ chối ${ids.length} phiếu đã chọn?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: 'Từ chối ngay'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '{{ route("tang-ca.bulk-tu-choi") }}',
+                        type: 'POST',
+                        data: { _token: '{{ csrf_token() }}', ids: ids },
+                        success: function (res) {
+                            if (res.success) Swal.fire('Đã từ chối!', res.message, 'success').then(() => location.reload());
+                        }
+                    });
+                }
+            });
+        }
     </script>
 @endpush
